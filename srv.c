@@ -26,10 +26,12 @@ string_t serverid;
 unsigned char *publickey;
 int publickey_len;
 unsigned char *vtoken;
+RSA *server_rsa;
 int vtoken_len;
 int listenfd, connfd;
 int encryption_enabled;
 unsigned char *shared_secret;
+int sslen;
 EVP_CIPHER_CTX *enc_ctx;
 EVP_CIPHER_CTX *dec_ctx;
 
@@ -40,6 +42,7 @@ int handle_loginstart(packet_t pk);
 int handle_handshake(packet_t pk);
 int handle_connection(int sockfd);
 int send_packet(packet_t pk);
+int handle_encryption_response(packet_t pk);
 
 int main(int argc, char **argv)
 {
@@ -138,10 +141,19 @@ int handle_cpk(packet_t pk)
 			handle_loginstart(pk);
 		} else {
 			fprintf(stderr, "got loginstart/handshake while in state %d\n", server_state);
+			return -1;
 		}
 		break;
 	case PKID_ENCRYPTION_RESPONSE :
 		fprintf(stderr, "received encryption response\n");
+		if (server_state != STATE_LOGIN) {
+			fprintf(stderr, "received encryption response in state %d\n", server_state);
+			return -1;
+		}
+		if (handle_encryption_response(pk) < 0) {
+			fprintf(stderr, "could not handle encryption response\n");
+			return -1;
+		}
 		break;
 	default :
 		fprintf(stderr, "weird packet id: %x\n", pkid);
@@ -150,6 +162,37 @@ int handle_cpk(packet_t pk)
 	return 0;
 	
 	
+}
+int handle_encryption_response(packet_t pk)
+{
+	char **next = (char **)malloc(sizeof(char *));
+	char *pin = pk->data;
+	int elen = vtois(pin, next);
+	char *encss = (char *)malloc(elen);
+	for (int i = 0; i < elen; i++) {
+		encss[i] =  pin[i];
+	}
+	sslen = RSA_size(server_rsa);
+	shared_secret = (unsigned char *)malloc(sslen);
+	if (RSA_private_decrypt(elen, encss, shared_secret, server_rsa, RSA_PKCS1_PADDING) < 0) {
+		fprintf(stderr, "failed to decrypt shared secret\n");
+		return -1;
+	}
+	write(1, shared_secret, sslen);
+	int tok_len = vtois(*next, next);
+	char *encvtoken = (char *)malloc(tok_len);
+	pin = *next;
+	for (int i = 0; i < tok_len; i++) {
+		encvtoken[i] =  pin[i];
+	}
+	unsigned char *tok = (unsigned char *)malloc(vtoken_len);
+	if (RSA_private_decrypt(tok_len, encvtoken, tok, server_rsa, RSA_PKCS1_PADDING) < 0) {
+		fprintf(stderr, "failed to decrypt vtoken\n");
+		return -1;
+	}
+
+
+
 }
 int handle_loginstart(packet_t pk)
 {
@@ -212,6 +255,7 @@ packet_t mker()
 		fprintf(stderr, "failed to enerate key\n");
 		return NULL;
 	}
+	server_rsa = rsap;
 	if (rsap == NULL) {
 		fprintf(stderr, "failed to generate key\n");
 		return NULL;
@@ -225,7 +269,7 @@ packet_t mker()
 		fprintf(stderr, "failed to encode public key\n");
 		return NULL;
 	}
-	write(1, publickey, publickey_len);
+	//write(1, publickey, publickey_len);
 	varint_t publickey_len_v = itov(publickey_len);
 	vtoken = "abcd";
 	vtoken_len = 4;
