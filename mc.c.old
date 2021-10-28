@@ -1,0 +1,345 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <strings.h>
+#include <errno.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/types.h>
+#include <stdio.h>
+#include <sys/socket.h>
+
+#define MAX_BYTES 100
+#define PORT 25565
+char read_buf[MAX_BYTES];
+char write_buf[MAX_BYTES];
+int read_max;
+int write_max;
+int read_index;
+int write_index;
+int write_str(char *str, int len);
+int read_str(char *str, int len);
+int write_varint(int value);
+int write_byte(int value);
+int read_byte();
+int flush_write_buf();
+int read_varint();
+int sockfd;
+
+struct varint {
+	int len;
+	char *data;
+};
+typedef struct varint *varint_t;
+
+typedef struct packet { char *data; int len; } *packet_t;
+int sendpk(packet_t pk, int sock);
+packet_t hspack(varint_t proto, char *addr, unsigned short int port, varint_t next);
+int sendvarint(varint_t value, int sock);
+varint_t itov(int value);
+int vtoi(varint_t value);
+
+packet_t handshake_packet(varint_t proto, char *addr, unsigned short int port, varint_t next);
+packet_t wrapck(int id, packet_t pack);
+packet_t loginpk(const char *user);
+
+int main(int argc, char **argv)
+{
+	int read_max = 0;
+	int write_max = 0;
+	int read_index = 0;
+	int write_index = 0;
+	if (argc != 2) {
+//		fprintf(stderr, "arg ip address\n");
+		return -1;
+	}
+	struct sockaddr_in servaddr;
+//	fprintf(stderr, "creating socket\n");
+	if( (sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 1) {
+//		fprintf(stderr, "socket() error\n");
+		return -1;
+	}
+//	fprintf(stderr, "created socket\n");
+	bzero(&servaddr, sizeof(servaddr));
+	servaddr.sin_family = AF_INET;
+	servaddr.sin_port = htons(PORT);
+	if (inet_pton(AF_INET, argv[1], &servaddr.sin_addr) <= 0) {
+//		fprintf(stderr, "inet_pton error\n");
+		return -1;
+	}
+	fprintf(stderr, "connecting\n");
+	if (connect(sockfd, (struct sockaddr *) &servaddr, sizeof(servaddr)) < 0) {
+//		fprintf(stderr, "%s", strerror(errno));
+//		fprintf(stderr, "connect error\n");
+		return -1;
+	}
+
+	fprintf(stderr, "sending packet to server\n");
+/*
+	write(sockfd, "GET / HTTP/1.1\r\f", 16);
+*/
+	 char outbuf[] = "GET / HTTP/1.1\r\f";
+//	write_str(outbuf, strlen(outbuf));
+	//sendpk(hspack(itov(756), "mc.hypixel.net", 25565, itov(1)), sockfd);
+	sendpk(handshake_packet(itov(756), "mc.hypixel.net", 25565, itov(2)), sockfd);
+	sendpk(loginpk("megachungus69"), sockfd);
+	//sendpk(loginpk("megachungus69"), 1);
+//	fprintf(stderr, "sending packet to stdout\n");
+	//sendpk(handshake_packet(itov(756), "mc.hypixel.net", 25565, itov(2)), 1);
+	//sendpk(hspack(itov(756), "mc.hypixel.net", 25565, itov(1)), 1);
+	char buf[100];
+	buf[100] = '\0';
+	fprintf(stderr, "reading\n");
+	int rn = 0;
+	while (1){
+		if (rn = read(sockfd, buf, 100) > 0) {
+			write(1, buf, rn);
+		}
+	}
+	return 0;
+}
+
+int read_varint()
+{
+	int value = 0;
+	int bit_offset = 0;
+	char current_byte;
+	do {
+		if (bit_offset == 35); {
+//			fprintf(stderr, "var_Int too big");
+//			fprintf(stderr, "can't be more than 5 bytes");
+			return -1;
+		}
+		if ((current_byte = read_byte()) == EOF) {
+//			fprintf(stderr, "no more bytes");
+			return -1;
+		}
+		value |= (current_byte & 0x7f) << bit_offset;
+		bit_offset += 7;
+	} while ((current_byte & 0x80) != 0);
+	return value;
+}
+int read_byte()
+{
+	if (read_index < read_max)
+		return read_buf[read_index++];
+	if((read_max = read(sockfd, read_buf, MAX_BYTES)) > 0) {
+		read_index = 0;
+		return read_buf[read_index++];
+	}
+	return EOF;
+}
+
+int write_byte(int value)
+{
+	if (write_index < MAX_BYTES)
+		return (write_buf[write_index++] = value);
+	return flush_write_buf();
+}
+int write_varint(int value)
+{
+	while(1) {
+		if ((value & 0xffffff80) == 0) {
+			write_byte(value);
+			return 0;
+		}
+		write_byte(value & 0x7f | 0x80);
+		value >>= 7;
+
+	}
+}
+
+int write_str(char *str, int len)
+{
+	int i = 0;
+	while (i < len)
+		write_byte(str[i++]);
+	flush_write_buf();
+	return 0;
+}
+int flush_write_buf()
+{
+	if((write_max = write(sockfd, write_buf, write_index)) > 0) {
+		write_index = 0;
+		return write_max;
+	}
+	return -1;
+}
+
+int read_str(char *str, int len)
+{
+	int i = 0;
+	while (i++ < len)
+		fprintf(stderr, "%c", read_byte());
+}
+int sendpk(packet_t pk, int sock)
+{
+	return write(sock, pk->data, pk->len);
+
+}
+int sendvarint(varint_t value, int sock)
+{
+	return write(sock, value->data, value->len);
+
+}
+
+packet_t wrapck(int id, packet_t pack)
+{
+	packet_t ret = (packet_t)malloc(sizeof(struct packet));
+	varint_t packid = itov(id);
+	varint_t packlen = itov(packid->len + pack->len);
+//	fprintf(stderr, "packid->len + pack->len = %d\n", packid->len + pack->len);
+//	fprintf(stderr, "pack->len = %d\n", pack->len);
+	ret->len = packid->len + packlen->len + pack->len;
+	ret->data = (char *)malloc(ret->len);
+	char *pin = ret->data;
+	for (int i = 0; i < packlen->len; i++) {
+		*pin++ = packlen->data[i];
+	}
+	for (int i = 0; i < packid->len; i++) {
+		*pin++ = packid->data[i];
+	}
+	for (int i = 0; i < pack->len; i++) {
+		*pin++ = pack->data[i];
+	}
+	free(packid->data);
+	free(packlen->data);
+	free(pack->data);
+	free(packid);
+	free(packlen);
+	free(pack);
+	return ret;
+	
+}
+
+packet_t loginpk(const char *user)
+{
+	packet_t retpk = (packet_t)malloc(sizeof(struct packet));
+	retpk->data = (char *)malloc(16);
+	retpk->len = 16;
+	strncpy(retpk->data, user, 16);
+	return wrapck(0, retpk);
+	
+	
+}
+packet_t handshake_packet(varint_t proto, char *addr, unsigned short int port, varint_t next)
+{
+	packet_t ret = (packet_t)malloc(sizeof(struct packet));
+	ret->len = proto->len + 255 + 2 + next->len;
+//	fprintf(stderr, "proto->len = %d\n", proto->len);
+//	fprintf(stderr, "next->len = %d\n", next->len);
+	ret->data = (char *)malloc(ret->len);
+	int i;
+	/* dump protocol version */
+	for (i = 0; i < proto->len; i++) {
+		ret->data[i] = proto->data[i];
+	}
+	int j = i;
+	/* copy server address */
+	while (*addr != '\0' && i < j + 254)
+		ret->data[i++] = *addr++;
+	ret->data[i] = '\0';
+	j += 255;
+	ret->data[j++] = (port >> 8) & 0xff;
+	ret->data[j++] = port & 0xff; /* network is big-endian */
+	/* dump next state */
+	for (i = 0; i < next->len; i++) {
+		ret->data[j+i] = next->data[i];
+	}
+	/* handshake packet id is 0x00 */
+	return wrapck(0, ret); 
+
+}
+
+/* varint len of packet id + data
+   varint packed id
+   byte_array data
+*/
+
+packet_t hspack(varint_t proto, char *addr, unsigned short int port, varint_t next)
+{
+	packet_t ret = (packet_t)malloc(sizeof(struct packet));
+	ret->len = proto->len + 255 + 16 + next->len;
+	varint_t packlen, packid;
+	packid = itov(0);
+	packlen = itov(ret->len + packid->len);
+	/* actual size of the packet */
+	int trulen = packlen->len + ret->len + packid->len;
+	ret->data = (char *)malloc(trulen);
+	int k, l;
+	/* dump packet length */
+	for (k = 0; k < packlen->len; k++) {
+		ret->data[k] = packlen->data[k];
+	}
+	/* dump packet id */
+	for (l = 0; l < packid->len; l++) {
+		ret->data[k + l] = packid->data[l];
+
+	}
+	l += k;
+	int i;
+	/* dump protocol version */
+	for (i = 0; i < proto->len; i++) {
+		ret->data[i + l] = proto->data[i];
+	}
+	i += l;
+	int j = i;
+	/* copy server address */
+	while (*addr != '\0' && i < j + 254)
+		ret->data[i++] = *addr++;
+	ret->data[i] = '\0';
+	j += 255;
+	ret->data[j++] = (port >> 8) & 0xff;
+	ret->data[j++] = port & 0xff; /* network is big-endian */
+	/* dump next state */
+	for (i = 0; i < next->len; i++) {
+		ret->data[j+i] = next->data[i];
+	}
+	return ret;
+
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+
+
+varint_t itov(int value)
+{
+	int tmp = value;
+	int len = 0;
+	/* count bytes */
+	while (1) {
+		if ((tmp & 0xffffff80) == 0) { 
+			len++;
+			break;
+		}		
+		len++;
+		tmp >>= 7;
+	}
+	varint_t ret = (varint_t)malloc(sizeof(struct varint));
+	ret->data = (char *)malloc(len);
+	ret->len = len;
+	/* store value */
+	int i;
+	for (i = 0; i < len - 1; i++) {
+		ret->data[i] = (value & 0x7f | 0x80);
+		value >>= 7;
+
+	}
+	ret->data[i] = value & 0x7f;
+	return ret;
+}
+
+int vtoi(varint_t value)
+{
+	int ret = 0;
+	int i = 0;
+	do {
+		ret |= ((value->data[i] & 0x7f) << (i * 7));
+		i++;
+	} while (i < value->len);
+	return ret;
+
+}
+	

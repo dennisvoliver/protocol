@@ -1,0 +1,2 @@
+#!/bin/sh
+gcc srv.c packet.c -lssl -lcrypto -luuid -lcurl cJSON/cJSON.c -o srv
