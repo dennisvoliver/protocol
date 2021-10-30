@@ -168,17 +168,22 @@ int handle_encryption_response(packet_t pk)
 	char **next = (char **)malloc(sizeof(char *));
 	char *pin = pk->data;
 	int elen = vtois(pin, next);
+	pin = *next;
 	char *encss = (char *)malloc(elen);
 	for (int i = 0; i < elen; i++) {
 		encss[i] =  pin[i];
 	}
 	sslen = RSA_size(server_rsa);
 	shared_secret = (unsigned char *)malloc(sslen);
+	//write(1, encss, elen);
 	if (RSA_private_decrypt(elen, encss, shared_secret, server_rsa, RSA_PKCS1_PADDING) < 0) {
 		fprintf(stderr, "failed to decrypt shared secret\n");
+		RSA_print_fp(stderr, server_rsa, 0);
+                fprintf(stderr, "failed to decrypt shared secret\n");
+                fprintf(stderr, "elen is %ld, RSA_size(rsa) is %d\n", elen, RSA_size(rsa));
 		return -1;
 	}
-	write(1, shared_secret, sslen);
+	//write(1, shared_secret, sslen);
 	int tok_len = vtois(*next, next);
 	char *encvtoken = (char *)malloc(tok_len);
 	pin = *next;
@@ -255,6 +260,7 @@ packet_t mker()
 		fprintf(stderr, "failed to enerate key\n");
 		return NULL;
 	}
+	//RSA_print_fp(stderr, rsap, 0);
 	server_rsa = rsap;
 	if (rsap == NULL) {
 		fprintf(stderr, "failed to generate key\n");

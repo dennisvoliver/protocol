@@ -53,34 +53,12 @@ int print_response;
 
 int main(int argc, char **argv)
 {
-	/*
-	char *msg = "hello";
-	varint_t num = itov(strlen(msg) + 1);
-	char *data = (char *)malloc(num->len + strlen(msg) + 1);
-	int i;
-	for (i = 0; i < num->len; i++) {
-		data[i] = num->data[i];
-	}
-	int j;
-	for (j = 0; j < strlen(msg) + 1; j++) {
-		data[i + j] = msg[j];
-	}
-	char **prt = (char **)malloc(sizeof(char *));
-	int n;
-	readba(data, prt, &n);
-	fprintf(stderr, "readba test: %s\n", *prt);
-
-	return 0;
-	*/
-	//fprintf(stderr, "payload:\n%s\n", mkauthjson("myusername", "mypassword"));
-//	return 0;
 	print_response = FALSE;	
 	dec_ctx = EVP_CIPHER_CTX_new();
 	enc_ctx = EVP_CIPHER_CTX_new();
 	encryption_enabled = FALSE;
 	//authenticate2("ctholdaway@gmail.com", "Corman999");
 	authenticate2("jj4u@live.be", "Jelte123");
-	fprintf(stderr, "done authenticating");
 	int read_max = 0;
 	int write_max = 0;
 	int read_index = 0;
@@ -90,20 +68,13 @@ int main(int argc, char **argv)
 		return -1;
 	}
 	struct sockaddr_in servaddr;
-	fprintf(stderr, "creating socket\n");
 	if( (sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 1) {
 		fprintf(stderr, "socket() error\n");
 		return -1;
 	}
-	fprintf(stderr, "created socket\n");
 	bzero(&servaddr, sizeof(servaddr));
-	fprintf(stderr, "initialized servaddr\n");
 	servaddr.sin_family = AF_INET;
-	fprintf(stderr, "set servaddr.sin_family to AF_INET\n");
-	//servaddr.sin_port = htons(PORT);
-	servaddr.sin_port = htons(25565);
-	fprintf(stderr,"set servaddr.sin_port to 25565\n");
-	fprintf(stderr, "%s = %s\n", argv[1], hosttoip(argv[1]));
+	servaddr.sin_port = htons(PORT);
 	const char *ip = hosttoip(argv[1]);
 	if (ip == NULL) {
 		fprintf(stderr, "hosttoip failed\n");
@@ -113,8 +84,6 @@ int main(int argc, char **argv)
 		fprintf(stderr, "inet_pton error\n");
 		return -1;
 	}
-//	return 0;
-	fprintf(stderr, "connecting\n");
 	if (connect(sockfd, (struct sockaddr *) &servaddr, sizeof(servaddr)) < 0) {
 		fprintf(stderr, "%s", strerror(errno));
 		fprintf(stderr, "connect error\n");
@@ -122,14 +91,9 @@ int main(int argc, char **argv)
 	}
 
 	int sentpk;
-	//sentpk = sendpk(hspk(itov(754), ctos("mc.hypixel.net"), 25565, itov(2)), sockfd);
-	fprintf(stderr, "sending handshake packet to server\n");
 	packet_t pkpk = hspk(itov(754), ctos(argv[1]), 25565, itov(2));
 	sentpk = sendpk(pkpk, sockfd);
-	//write(1, pkpk->data, pkpk->len);
-//	fprintf(stderr, "sentpk = %d\n", sentpk);
 	sleep(1);
-	fprintf(stderr, "sending login start packet\n");
 	sendpk(lipk(player_name), sockfd);
 	char buf[MAX_BYTES];
 	int rn = 0;
@@ -155,14 +119,12 @@ int main(int argc, char **argv)
 }
 const char *hosttoip(const char *host)
 {
-	fprintf(stderr, "looking for ip of %s\n", host);
 	struct hostent *hostentp = gethostbyname(host);
 	if (hostentp == NULL ) {
 		fprintf(stderr, "gethosbyname(%s) returned nothing\n", host);
 		return NULL;
 	}
 	char **addr_list = hostentp->h_addr_list;	
-	fprintf(stderr, "called gethostbyname\n");
 	char *src = addr_list[0];	
 	char *addrbuf = (char *)malloc(100);
 	int i = 0;
@@ -172,15 +134,12 @@ const char *hosttoip(const char *host)
 		i++;
 	}
 	*/
-	fprintf(stderr, "doing inet_ntop\n");
 	return  inet_ntop(AF_INET, (const void *) src, addrbuf, 100); 
 }
 #define cjson_get(x, y) cJSON_GetObjectItemCaseSensitive((x), (y))
 /* parse response from /authenticate */
 int parseauth(unsigned char *payload)
 {
-	fprintf(stderr, "parsing auth json %s\n", payload);
-	//write(1, payload, strlen(payload));
 	if (http_code == 403) {
 		fprintf(stderr, "authentication failed\n");
 		return -1;
@@ -248,7 +207,6 @@ unsigned char *twoscom(unsigned char *num)
 	for (; i >= 0; i--) {
 		carry += !(num[i] & 0xff);
 		carry += (num[i] ^ 0xff);
-		//fprintf(stderr, "%x ", carry);
 		ret[i] = carry & 0xff;
 		carry >>= 8;
 	}
@@ -256,14 +214,10 @@ unsigned char *twoscom(unsigned char *num)
 }
 char *mksesjson(char *tkn, char *puuid, char *srvhash)
 {
-	fprintf(stderr, "making session\n");
 	cJSON *payload = cJSON_CreateObject();
 	cJSON_AddItemToObject(payload, "accessToken", cJSON_CreateString(tkn));
-	fprintf(stderr, "adding puuid to json\n");
 	cJSON_AddItemToObject(payload, "selectedProfile", cJSON_CreateString(puuid));
-	fprintf(stderr, "srvhash: %s\n", srvhash);
 	cJSON_AddItemToObject(payload, "serverId", cJSON_CreateString(srvhash));
-	fprintf(stderr, "printing json\n");
 	return cJSON_Print(payload);
 }
 char *mkauthjson(const char *uname, const char *pword)
@@ -293,7 +247,6 @@ char *mkauthjson(const char *uname, const char *pword)
 
 char *mojangapi(char *payload, char *url)
 {
-	fprintf(stderr,"calling mojang api\n");
 	CURL *curl;
 	CURLcode res;
 	char *ret;
@@ -483,7 +436,6 @@ int readpk(packet_t pk)
 	int len  = pk->len;
 	while ((*data++  & 0x80) > 0)
 		;
-	fprintf(stderr, "pklen: %d\n", pk->len);
 	int state = vtoi_raw(data);
 	while ((*data++ & 0x80) > 0)
 		;
@@ -519,8 +471,6 @@ char *readba(char *from, char **to, int *len)
 	*to = (char *)malloc(*len);
 	for (int i = 0; i < *len; i++) {
 		(*to)[i] = (*next)[i];
-//		fprintf(stderr, "(*to)[%d] = %x\n", i, (*to)[i]);
-//		fprintf(stderr, "(*next)[%d] = %x\n", i, (*next)[i]);
 	}
 	return *next + *len;
 
@@ -528,27 +478,25 @@ char *readba(char *from, char **to, int *len)
 }
 int handle_er(char *data)
 {
-	fprintf(stderr, "handling encryption request\n");
 	char **next = (char **)malloc(sizeof(char *));
 	/* copy server id */
 	/* we're treating String as Byte Array because Server ID doesn't use non-ascii anyway */
 	int srv_n = 0;
 	data = readba(data, next, &srv_n);
 	char *serverid = *next;
-	fprintf(stderr, "srv_n: %d\n", srv_n);
+	/*
 	for (int i = 0; i < srv_n; i++)
 		fprintf(stderr, "%c", serverid[i]);
+		*/
 	/* copy public key */
 	int pub_n = 0;
 	data = readba(data, next, &pub_n);
 	char *pubkey = *next;
 	// output public key
-	fprintf(stderr, "pubkey_n: %d\n", pub_n);
 	/* copy verify token */
 	int tok_n = 0;
 	data = readba(data, next, &tok_n);
 	char *vtoken = *next;
-	fprintf(stderr, "tok_n: %d\n", tok_n);
 
 	/* make shared secret */
 	int len = 16;
@@ -557,35 +505,24 @@ int handle_er(char *data)
 		fprintf(stderr, "failed to generate random shared secret\n");
 		return -1;
 	}
-	write(1, shared_secret, len);
-	fprintf(stderr, "making server hash\n");
 	server_hash = mksrvhash(serverid, srv_n, shared_secret, len, pubkey, pub_n);
-	fprintf(stderr, "joining\n");
-	//write(1, server_pubkey, server_pubkey_len);
-	join() == 1 ?  fprintf(stderr, "joined\n") : fprintf(stderr, "join failed");
+	//join() == 1 ?  fprintf(stderr, "joined\n") : fprintf(stderr, "join failed");
+	if (join() != 1) {
+		fprintf(stderr, "join failed\n");
+		return -1;
+	}
 	
-	fprintf(stderr, "about to encrypt shared secre\n");
-	//write(2, pubkey, pub_n);
-	fprintf(stderr, "wrote pubkey in sderror\n");
 	unsigned char *encrypted_shared_secret = encrypt(shared_secret, len, pubkey, pub_n);
 	if (encrypted_shared_secret == NULL) {
-		fprintf(stderr, "failed to encrypt encrypted shared secret\n");
+		fprintf(stderr, "failed to encrypt shared secret\n");
 		return -1;
 	}
 	unsigned char *encrypted_vtoken = encrypt(vtoken, tok_n, pubkey, pub_n);
 	if (encrypted_vtoken == NULL) {
-		fprintf(stderr, "failed to encrypt encrypted vtoken\n");
+		fprintf(stderr, "failed to encrypt vtoken\n");
 		return -1;
 	}
-	fprintf(stderr, "encrypted verify token\n");
-	/*
-	if (encrypted_shared_secret != NULL && encrypted_vtoken != NULL)
-		fprintf(stderr, "encrypt success\n");
-		*/
 	packet_t response = erespk(encrypted_shared_secret, 16, encrypted_vtoken, 16);
-	//fprintf(stderr, "outputting encryption response packet\n");
-	//write(1, response->data, response->len);
-	fprintf(stderr, "sending encryption response\n");
 	if (sendpk(response, sockfd) != response->len) {
 		fprintf(stderr, "failed to send encryption response packet\n");
 		return -1;
@@ -596,10 +533,6 @@ int handle_er(char *data)
 	EVP_DecryptInit_ex(dec_ctx, EVP_aes_128_cfb8(), NULL, shared_secret, shared_secret);
 	EVP_CIPHER_CTX_init(enc_ctx);
 	EVP_DecryptInit_ex(enc_ctx, EVP_aes_128_cfb8(), NULL, shared_secret, shared_secret);
-	/*
-	fprintf(stderr, "done initializing encryption/decryption contexts\n");
-	write(1, response->data, response->len);
-	*/
 	//print_response = TRUE;
 	return 0;
 	
@@ -610,7 +543,6 @@ unsigned char *encrypt(unsigned  char *msg, long len, unsigned const char *pubke
 	*rsap = RSA_new();
 	const unsigned char *throwaway = pubkey; /* because d2i modifies the pointer for some reason */
 	RSA *rsa = d2i_RSA_PUBKEY(NULL, &throwaway, n);
-	//write(1, pubkey, n);
 	if (rsa == NULL) {
 		fprintf(stderr, "failed to read pubkey\n");
 		return NULL;
@@ -624,11 +556,28 @@ unsigned char *encrypt(unsigned  char *msg, long len, unsigned const char *pubke
 		write(1, pkey, pkeylen);
 	}
 	*/
+	if (len >= (RSA_size(rsa) - 11)) {
+		fprintf(stderr, "len is greater than RSA_size(rsa) - 11\nlen = %ld, RSA_size(rsa) = %d\n", len, RSA_size(rsa));
+		return NULL;
+	}
 	unsigned char *ret = (unsigned char *)malloc(RSA_size(rsa));
 	if (RSA_public_encrypt(len, msg, ret, rsa, RSA_PKCS1_PADDING) < 0) {
 		fprintf(stderr, "failed to encrypt\n");
 		return NULL;
 	}
+	/*
+	unsigned char *decrypted_shared_secret = (char *)malloc(len);
+        if (RSA_private_decrypt(RSA_size(rsa), ret, decrypted_shared_secret, rsa, RSA_PKCS1_PADDING) < 0) {
+		fprintf(stderr, "%s\n", 	ERR_error_string(ERR_get_error(), NULL));
+		RSA_print_fp(stderr, rsa, 0);
+		fprintf(stderr, "failed to decrypt shared secret\n");
+		fprintf(stderr, "len is %ld, RSA_size(rsa) is %d\n", len, RSA_size(rsa));
+		return NULL;
+        } else {
+		write(1, decrypted_shared_secret, len);
+	}
+	*/
+
 	//write(1, ret, 16);
 	return ret;
 	
@@ -666,12 +615,12 @@ int read_varint()
 	char current_byte;
 	do {
 		if (bit_offset == 35); {
-//			fprintf(stderr, "var_Int too big\n");
-//			fprintf(stderr, "can't be more than 5 bytes");
+			fprintf(stderr, "var_Int too big\n");
+			fprintf(stderr, "can't be more than 5 bytes");
 			return -1;
 		}
 		if ((current_byte = read_byte()) == EOF) {
-//			fprintf(stderr, "no more bytes");
+			fprintf(stderr, "no more bytes");
 			return -1;
 		}
 		value |= (current_byte & 0x7f) << bit_offset;
@@ -824,8 +773,6 @@ packet_t handshake_packet(varint_t proto, char *addr, unsigned short int port, v
 {
 	packet_t ret = (packet_t)malloc(sizeof(struct packet));
 	ret->len = proto->len + 255 + 2 + next->len;
-//	fprintf(stderr, "proto->len = %d\n", proto->len);
-//	fprintf(stderr, "next->len = %d\n", next->len);
 	ret->data = (char *)malloc(ret->len);
 	int i;
 	/* dump protocol version */
@@ -838,7 +785,6 @@ packet_t handshake_packet(varint_t proto, char *addr, unsigned short int port, v
 		ret->data[i++] = *addr++;
 	ret->data[i] = '\0';
 	j += 255;
-	fprintf(stderr, "port %d\n", port);
 	ret->data[j++] = (port >> 8) & 0xff;
 	ret->data[j++] = port & 0xff; /* network is big-endian */
 	/* dump next state */
@@ -864,10 +810,7 @@ packet_t hspk(varint_t proto, string_t addr, unsigned short int port, varint_t n
 	for (i = 0; i < addr->len; i++)
 		*pin++ = addr->data[i];
 	/* add 16-bit port number in big-endian */
-	//fprintf(stderr, "port: %d\n", port);
-	//fprintf(stderr, "first byte of port: %d\n", (port >> 8) & 0xff);
 	*pin++ = (port >> 8) & 0xff;
-	//fprintf(stderr, "second byte of port: %d\n", port & 0xff);
 	*pin++ = port & 0xff;
 	/* dump next state */
 	for (i = 0; i < next->len; i++) {

@@ -54,6 +54,7 @@ unsigned char *shatohex(unsigned char *num);
 #define TRUE 1
 #define FALSE 0
 #include <openssl/sha.h>
+#include <openssl/err.h>
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
 #include <openssl/x509.h>
