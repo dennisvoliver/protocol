@@ -180,7 +180,7 @@ int handle_encryption_response(packet_t pk)
 		fprintf(stderr, "failed to decrypt shared secret\n");
 		RSA_print_fp(stderr, server_rsa, 0);
                 fprintf(stderr, "failed to decrypt shared secret\n");
-                fprintf(stderr, "elen is %ld, RSA_size(rsa) is %d\n", elen, RSA_size(rsa));
+                fprintf(stderr, "elen is %d, RSA_size(rsa) is %d\n", elen, RSA_size(server_rsa));
 		return -1;
 	}
 	//write(1, shared_secret, sslen);
@@ -260,6 +260,36 @@ packet_t mker()
 		fprintf(stderr, "failed to enerate key\n");
 		return NULL;
 	}
+	int len = 16;
+        shared_secret = (unsigned char *)malloc(len);
+        if (RAND_bytes(shared_secret, len) == 0) {
+                fprintf(stderr, "failed to generate random shared secret\n");
+                return NULL;
+        }
+	write(1, shared_secret, len);
+	write(1, "aaaaaaaaaa", 10);
+     
+	unsigned char *encrypted_shared_secret = (unsigned char *)malloc(RSA_size(rsap));
+	int retlen;
+        if ((retlen=RSA_public_encrypt(len, shared_secret, encrypted_shared_secret, rsap, RSA_PKCS1_PADDING)) < 0) {
+        	fprintf(stderr, "failed to encrypt\n");
+                return NULL;
+        }
+
+	write(1, "bbbbbbbbbb", 10);
+	write(1, encrypted_shared_secret, retlen);
+	fprintf(stderr, "SHARED SECRET ENCRYPTION TEST\n");
+	unsigned char *decrypted_shared_secret = (unsigned char *)malloc(len);
+	if (RSA_private_decrypt(retlen, encrypted_shared_secret, decrypted_shared_secret, rsap, RSA_PKCS1_PADDING) < 0) {
+		fprintf(stderr, "%s\n",         ERR_error_string(ERR_get_error(), NULL));
+		fprintf(stderr, "shared secret encryption test: failed to decrypt shared secret\n");
+		RSA_print_fp(stderr, server_rsa, 0);
+		return NULL;
+	}
+	write(1, decrypted_shared_secret, len);
+
+	write(1, "cccccccccc", 10);
+	exit(-1);
 	//RSA_print_fp(stderr, rsap, 0);
 	server_rsa = rsap;
 	if (rsap == NULL) {
