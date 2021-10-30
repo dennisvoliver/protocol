@@ -577,7 +577,7 @@ unsigned char *encrypt(unsigned  char *msg, long len, unsigned const char *pubke
 		write(1, decrypted_shared_secret, len);
 	}
 	*/
-
+	// test
 	//write(1, ret, 16);
 	return ret;
 	
