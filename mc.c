@@ -501,10 +501,17 @@ int handle_er(char *data)
 	/* make shared secret */
 	int len = 16;
 	shared_secret = (unsigned char *)malloc(len);
+	/*
 	if (RAND_bytes(shared_secret, len) == 0) {
 		fprintf(stderr, "failed to generate random shared secret\n");
 		return -1;
 	}
+	*/
+	for (int i = 0; i < len; i++) {
+		shared_secret[i] = (unsigned char)'a';
+	}
+	//write(1, shared_secret, len);
+	//write(1, pubkey, pub_n);
 	server_hash = mksrvhash(serverid, srv_n, shared_secret, len, pubkey, pub_n);
 	//join() == 1 ?  fprintf(stderr, "joined\n") : fprintf(stderr, "join failed");
 	if (join() != 1) {
@@ -517,6 +524,7 @@ int handle_er(char *data)
 		fprintf(stderr, "failed to encrypt shared secret\n");
 		return -1;
 	}
+	write(1, encrypted_shared_secret, 16);
 	unsigned char *encrypted_vtoken = encrypt(vtoken, tok_n, pubkey, pub_n);
 	if (encrypted_vtoken == NULL) {
 		fprintf(stderr, "failed to encrypt vtoken\n");
@@ -547,6 +555,8 @@ unsigned char *encrypt(unsigned  char *msg, long len, unsigned const char *pubke
 		fprintf(stderr, "failed to read pubkey\n");
 		return NULL;
 	}
+        RSA_print_fp(stderr, rsa, 0);
+
 	/*
 	int pkeylen = i2d_RSA_PUBKEY(rsa, NULL);
 	char *pkey = (char *)malloc(pkeylen);

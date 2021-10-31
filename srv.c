@@ -175,8 +175,10 @@ int handle_encryption_response(packet_t pk)
 	}
 	sslen = RSA_size(server_rsa);
 	shared_secret = (unsigned char *)malloc(sslen);
+	//fprintf(stderr, "printing encrypted shared secret, elen=%d, sslen=%d\n", elen, sslen);
 	//write(1, encss, elen);
 	if (RSA_private_decrypt(elen, encss, shared_secret, server_rsa, RSA_PKCS1_PADDING) < 0) {
+                fprintf(stderr, "%s\n",         ERR_error_string(ERR_get_error(), NULL));
 		fprintf(stderr, "failed to decrypt shared secret\n");
 		RSA_print_fp(stderr, server_rsa, 0);
                 fprintf(stderr, "failed to decrypt shared secret\n");
@@ -262,12 +264,17 @@ packet_t mker()
 	}
 	int len = 16;
         shared_secret = (unsigned char *)malloc(len);
+	/*
         if (RAND_bytes(shared_secret, len) == 0) {
                 fprintf(stderr, "failed to generate random shared secret\n");
                 return NULL;
         }
+	*/
+	for (int i = 0; i < len; i++) {
+		shared_secret[i] =  (unsigned char)'a';
+	}
 	write(1, shared_secret, len);
-	write(1, "aaaaaaaaaa", 10);
+	write(1, "kkkkkkkkkk", 10);
      
 	unsigned char *encrypted_shared_secret = (unsigned char *)malloc(RSA_size(rsap));
 	int retlen;
@@ -276,8 +283,9 @@ packet_t mker()
                 return NULL;
         }
 
-	write(1, "bbbbbbbbbb", 10);
+	fprintf(stderr, "retlen %d\n", retlen);
 	write(1, encrypted_shared_secret, retlen);
+	write(1, "bbbbbbbbbb", 10);
 	fprintf(stderr, "SHARED SECRET ENCRYPTION TEST\n");
 	unsigned char *decrypted_shared_secret = (unsigned char *)malloc(len);
 	if (RSA_private_decrypt(retlen, encrypted_shared_secret, decrypted_shared_secret, rsap, RSA_PKCS1_PADDING) < 0) {
@@ -289,7 +297,7 @@ packet_t mker()
 	write(1, decrypted_shared_secret, len);
 
 	write(1, "cccccccccc", 10);
-	exit(-1);
+	//exit(-1);
 	//RSA_print_fp(stderr, rsap, 0);
 	server_rsa = rsap;
 	if (rsap == NULL) {
@@ -300,7 +308,7 @@ packet_t mker()
 	publickey_len = i2d_RSA_PUBKEY(rsap, NULL);
 	unsigned char *throwaway = publickey = (char *)malloc(publickey_len);
 	publickey_len = i2d_RSA_PUBKEY(rsap, &throwaway);
-	fprintf(stderr, "publickey_len %d\n", publickey_len);
+	//fprintf(stderr, "publickey_len %d\n", publickey_len);
 	if (publickey_len <= 0) {
 		fprintf(stderr, "failed to encode public key\n");
 		return NULL;
