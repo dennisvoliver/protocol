@@ -50,6 +50,7 @@ packet_t erespk(unsigned char *ess, int sslen, unsigned char *evtoken,  int vtle
 EVP_CIPHER_CTX *enc_ctx;
 EVP_CIPHER_CTX *dec_ctx;
 int print_response;
+int handle_disconnect_login(char *data);
 
 int main(int argc, char **argv)
 {
@@ -58,7 +59,7 @@ int main(int argc, char **argv)
 	enc_ctx = EVP_CIPHER_CTX_new();
 	encryption_enabled = FALSE;
 	//authenticate2("ctholdaway@gmail.com", "Corman999");
-	authenticate2("jj4u@live.be", "Jelte123");
+	//authenticate2("jj4u@live.be", "Jelte123");
 	int read_max = 0;
 	int write_max = 0;
 	int read_index = 0;
@@ -454,6 +455,7 @@ int readpk(packet_t pk)
 		break;
 	case DISCONNECT_LOGIN :
 		fprintf(stderr, "disconnect login\n");
+		handle_disconnect_login(data);
 		break;
 	default :
 		fprintf(stderr, "weird state: %x\n", state);
@@ -476,6 +478,12 @@ char *readba(char *from, char **to, int *len)
 
 
 }
+
+int handle_disconnect_login(char *data)
+{
+	fprintf(stderr, "disconnect reason:\n%s\n", stoc_raw(data));
+
+}
 int handle_er(char *data)
 {
 	char **next = (char **)malloc(sizeof(char *));
@@ -484,10 +492,6 @@ int handle_er(char *data)
 	int srv_n = 0;
 	data = readba(data, next, &srv_n);
 	char *serverid = *next;
-	/*
-	for (int i = 0; i < srv_n; i++)
-		fprintf(stderr, "%c", serverid[i]);
-		*/
 	/* copy public key */
 	int pub_n = 0;
 	data = readba(data, next, &pub_n);
@@ -501,17 +505,10 @@ int handle_er(char *data)
 	/* make shared secret */
 	int len = 16;
 	shared_secret = (unsigned char *)malloc(len);
-	/*
 	if (RAND_bytes(shared_secret, len) == 0) {
 		fprintf(stderr, "failed to generate random shared secret\n");
 		return -1;
 	}
-	*/
-	for (int i = 0; i < len; i++) {
-		shared_secret[i] = (unsigned char)'a';
-	}
-	//write(1, shared_secret, len);
-	//write(1, pubkey, pub_n);
 	server_hash = mksrvhash(serverid, srv_n, shared_secret, len, pubkey, pub_n);
 	//join() == 1 ?  fprintf(stderr, "joined\n") : fprintf(stderr, "join failed");
 	if (join() != 1) {
@@ -524,13 +521,12 @@ int handle_er(char *data)
 		fprintf(stderr, "failed to encrypt shared secret\n");
 		return -1;
 	}
-	write(1, encrypted_shared_secret, 16);
 	unsigned char *encrypted_vtoken = encrypt(vtoken, tok_n, pubkey, pub_n);
 	if (encrypted_vtoken == NULL) {
 		fprintf(stderr, "failed to encrypt vtoken\n");
 		return -1;
 	}
-	packet_t response = erespk(encrypted_shared_secret, 16, encrypted_vtoken, 16);
+	packet_t response = erespk(encrypted_shared_secret, 128, encrypted_vtoken, 128);
 	if (sendpk(response, sockfd) != response->len) {
 		fprintf(stderr, "failed to send encryption response packet\n");
 		return -1;
@@ -547,48 +543,25 @@ int handle_er(char *data)
 }
 unsigned char *encrypt(unsigned  char *msg, long len, unsigned const char *pubkey, long n)
 {
-	RSA **rsap = (RSA **)malloc(sizeof(RSA *));;
-	*rsap = RSA_new();
 	const unsigned char *throwaway = pubkey; /* because d2i modifies the pointer for some reason */
 	RSA *rsa = d2i_RSA_PUBKEY(NULL, &throwaway, n);
 	if (rsa == NULL) {
 		fprintf(stderr, "failed to read pubkey\n");
 		return NULL;
 	}
-        RSA_print_fp(stderr, rsa, 0);
 
-	/*
-	int pkeylen = i2d_RSA_PUBKEY(rsa, NULL);
-	char *pkey = (char *)malloc(pkeylen);
-	throwaway = pkey;
-	pkeylen = i2d_RSA_PUBKEY(rsa, (unsigned char **)&throwaway);
-	if (pkeylen > 0) {
-		write(1, pkey, pkeylen);
-	}
-	*/
 	if (len >= (RSA_size(rsa) - 11)) {
 		fprintf(stderr, "len is greater than RSA_size(rsa) - 11\nlen = %ld, RSA_size(rsa) = %d\n", len, RSA_size(rsa));
 		return NULL;
 	}
 	unsigned char *ret = (unsigned char *)malloc(RSA_size(rsa));
-	if (RSA_public_encrypt(len, msg, ret, rsa, RSA_PKCS1_PADDING) < 0) {
+	int retlen;
+	if ((retlen=RSA_public_encrypt(len, msg, ret, rsa, RSA_PKCS1_PADDING)) < 0) {
 		fprintf(stderr, "failed to encrypt\n");
 		return NULL;
 	}
-	/*
-	unsigned char *decrypted_shared_secret = (char *)malloc(len);
-        if (RSA_private_decrypt(RSA_size(rsa), ret, decrypted_shared_secret, rsa, RSA_PKCS1_PADDING) < 0) {
-		fprintf(stderr, "%s\n", 	ERR_error_string(ERR_get_error(), NULL));
-		RSA_print_fp(stderr, rsa, 0);
-		fprintf(stderr, "failed to decrypt shared secret\n");
-		fprintf(stderr, "len is %ld, RSA_size(rsa) is %d\n", len, RSA_size(rsa));
-		return NULL;
-        } else {
-		write(1, decrypted_shared_secret, len);
-	}
-	*/
-	// test
-	//write(1, ret, 16);
+	write(1, ret, retlen);
+	RSA_print_fp(stderr, rsa, 0);
 	return ret;
 	
 

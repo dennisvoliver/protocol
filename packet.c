@@ -147,3 +147,16 @@ varint_t itov(int value)
 	ret->data[i] = value & 0x7f;
 	return ret;
 }
+char *stoc_raw(char *s)
+{
+	char **next = (char **)malloc(sizeof(char *));
+	*next = s;
+	int len = vtois(*next, next);
+	char *c = (char *)malloc(len + 1);
+	for (int i = 0; i < len; i++) {
+		c[i] = (*next)[i];
+	}
+	c[len] = '\0';
+	free(next);
+	return c;
+}

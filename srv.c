@@ -173,19 +173,17 @@ int handle_encryption_response(packet_t pk)
 	for (int i = 0; i < elen; i++) {
 		encss[i] =  pin[i];
 	}
+	*next = pin + elen;
 	sslen = RSA_size(server_rsa);
 	shared_secret = (unsigned char *)malloc(sslen);
-	//fprintf(stderr, "printing encrypted shared secret, elen=%d, sslen=%d\n", elen, sslen);
-	//write(1, encss, elen);
 	if (RSA_private_decrypt(elen, encss, shared_secret, server_rsa, RSA_PKCS1_PADDING) < 0) {
-                fprintf(stderr, "%s\n",         ERR_error_string(ERR_get_error(), NULL));
-		fprintf(stderr, "failed to decrypt shared secret\n");
-		RSA_print_fp(stderr, server_rsa, 0);
                 fprintf(stderr, "failed to decrypt shared secret\n");
+                fprintf(stderr, "%s\n",         ERR_error_string(ERR_get_error(), NULL));
+		RSA_print_fp(stderr, server_rsa, 0);
                 fprintf(stderr, "elen is %d, RSA_size(rsa) is %d\n", elen, RSA_size(server_rsa));
+		write(1, encss, elen);
 		return -1;
 	}
-	//write(1, shared_secret, sslen);
 	int tok_len = vtois(*next, next);
 	char *encvtoken = (char *)malloc(tok_len);
 	pin = *next;
@@ -195,6 +193,8 @@ int handle_encryption_response(packet_t pk)
 	unsigned char *tok = (unsigned char *)malloc(vtoken_len);
 	if (RSA_private_decrypt(tok_len, encvtoken, tok, server_rsa, RSA_PKCS1_PADDING) < 0) {
 		fprintf(stderr, "failed to decrypt vtoken\n");
+		fprintf(stderr, "tok_len = %d\n", tok_len);
+		RSA_print_fp(stderr, server_rsa, 0);
 		return -1;
 	}
 
@@ -262,19 +262,13 @@ packet_t mker()
 		fprintf(stderr, "failed to enerate key\n");
 		return NULL;
 	}
+	//RSA_print_fp(stderr, rsap, 0);
 	int len = 16;
         shared_secret = (unsigned char *)malloc(len);
-	/*
         if (RAND_bytes(shared_secret, len) == 0) {
                 fprintf(stderr, "failed to generate random shared secret\n");
                 return NULL;
         }
-	*/
-	for (int i = 0; i < len; i++) {
-		shared_secret[i] =  (unsigned char)'a';
-	}
-	write(1, shared_secret, len);
-	write(1, "kkkkkkkkkk", 10);
      
 	unsigned char *encrypted_shared_secret = (unsigned char *)malloc(RSA_size(rsap));
 	int retlen;
@@ -283,37 +277,23 @@ packet_t mker()
                 return NULL;
         }
 
-	fprintf(stderr, "retlen %d\n", retlen);
-	write(1, encrypted_shared_secret, retlen);
-	write(1, "bbbbbbbbbb", 10);
-	fprintf(stderr, "SHARED SECRET ENCRYPTION TEST\n");
-	unsigned char *decrypted_shared_secret = (unsigned char *)malloc(len);
-	if (RSA_private_decrypt(retlen, encrypted_shared_secret, decrypted_shared_secret, rsap, RSA_PKCS1_PADDING) < 0) {
-		fprintf(stderr, "%s\n",         ERR_error_string(ERR_get_error(), NULL));
-		fprintf(stderr, "shared secret encryption test: failed to decrypt shared secret\n");
-		RSA_print_fp(stderr, server_rsa, 0);
-		return NULL;
-	}
-	write(1, decrypted_shared_secret, len);
 
-	write(1, "cccccccccc", 10);
-	//exit(-1);
-	//RSA_print_fp(stderr, rsap, 0);
 	server_rsa = rsap;
 	if (rsap == NULL) {
 		fprintf(stderr, "failed to generate key\n");
 		return NULL;
 	}
-	unsigned char **pubkey = (unsigned char **)malloc(sizeof(unsigned char *));
+	//unsigned char **pubkey = (unsigned char **)malloc(sizeof(unsigned char *));
 	publickey_len = i2d_RSA_PUBKEY(rsap, NULL);
 	unsigned char *throwaway = publickey = (char *)malloc(publickey_len);
 	publickey_len = i2d_RSA_PUBKEY(rsap, &throwaway);
-	//fprintf(stderr, "publickey_len %d\n", publickey_len);
 	if (publickey_len <= 0) {
 		fprintf(stderr, "failed to encode public key\n");
 		return NULL;
 	}
-	//write(1, publickey, publickey_len);
+	
+
+
 	varint_t publickey_len_v = itov(publickey_len);
 	vtoken = "abcd";
 	vtoken_len = 4;
@@ -336,6 +316,7 @@ packet_t mker()
 }
 
 /* reads minecraft String into a char */
+/*
 char *stoc_raw(char *s)
 {
 	char **next = (char **)malloc(sizeof(char *));
@@ -349,6 +330,7 @@ char *stoc_raw(char *s)
 	free(next);
 	return c;
 }
+*/
 int handle_handshake(packet_t pk)
 {
 	fprintf(stderr, "handling handshake packet\n");
