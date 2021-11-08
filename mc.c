@@ -29,6 +29,7 @@ int read_index;
 int write_index;
 int sockfd;
 int encryption_enabled;
+int compression_enabled;
 
 char *stoc(string_t s);
 unsigned char *shared_secret;
@@ -58,8 +59,10 @@ int main(int argc, char **argv)
 	dec_ctx = EVP_CIPHER_CTX_new();
 	enc_ctx = EVP_CIPHER_CTX_new();
 	encryption_enabled = FALSE;
+	compression_enabled = FALSE;
 	//authenticate2("ctholdaway@gmail.com", "Corman999");
 	//authenticate2("jj4u@live.be", "Jelte123");
+	authenticate2("broskkii88@icloud.com", "Jakers01!");
 	int read_max = 0;
 	int write_max = 0;
 	int read_index = 0;
@@ -427,7 +430,7 @@ int readpk(packet_t pk)
 {
 	packet_t tmpk = pk;
 	if (encryption_enabled) {
-		fprintf(stderr, "reading encrypted packet\n");
+		//fprintf(stderr, "reading encrypted packet\n");
 		if ((pk = decpk(pk, shared_secret, dec_ctx)) == NULL) {
 			fprintf(stderr, "failed to decrypt packet\n");
 		}
@@ -446,9 +449,12 @@ int readpk(packet_t pk)
 		break;
 	case LOGIN_SUCCESS :
 		fprintf(stderr, "login success\n");
+		write(1, "success", 7);
 		break;
 	case SET_COMPRESSION :
 		fprintf(stderr, "compression request\n");
+		//write(1, "compress", 7);
+		handle_set_compression(data);
 		break;
 	case DISCONNECT_PLAY :
 		fprintf(stderr, "disconnect play\n");
@@ -458,12 +464,17 @@ int readpk(packet_t pk)
 		handle_disconnect_login(data);
 		break;
 	default :
-		fprintf(stderr, "weird state: %x\n", state);
+		//fprintf(stderr, "weird state: %x\n", state);
 		break;
 	}
 	return 0;
 	
 	
+}
+int handle_set_compression(char *data)
+{
+	compression_threshold =  vtoi_raw(data);
+	compression_enabled = TRUE;
 }
 /* read Byte Array */
 char *readba(char *from, char **to, int *len)
