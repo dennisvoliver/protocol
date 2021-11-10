@@ -39,6 +39,15 @@ int readpk(packet_t pk)
 	
 }
 */
+/* returns the length of the Varint from the draw data */
+int vton_raw(char *c)
+{
+	int i = 0;
+	while ((c[i++] & 0x80))
+		;
+	return i;
+
+}
 int vtoi_raw(char *c)
 {
 	int i = 0;

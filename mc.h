@@ -61,5 +61,7 @@ unsigned char *shatohex(unsigned char *num);
 #include <openssl/evp.h>
 #include <openssl/bn.h>
 #include <unistd.h>
+#include <zlib.h>
 packet_t decpk(packet_t pk, unsigned char *key, EVP_CIPHER_CTX *ctx);
 char *stoc_raw(char *s);
+int vton_raw(char *c);

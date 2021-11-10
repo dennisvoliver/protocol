@@ -30,6 +30,7 @@ int write_index;
 int sockfd;
 int encryption_enabled;
 int compression_enabled;
+int compression_threshold;
 
 char *stoc(string_t s);
 unsigned char *shared_secret;
@@ -52,6 +53,7 @@ EVP_CIPHER_CTX *enc_ctx;
 EVP_CIPHER_CTX *dec_ctx;
 int print_response;
 int handle_disconnect_login(char *data);
+int handle_set_compression(char *data);
 
 int main(int argc, char **argv)
 {
@@ -60,6 +62,7 @@ int main(int argc, char **argv)
 	enc_ctx = EVP_CIPHER_CTX_new();
 	encryption_enabled = FALSE;
 	compression_enabled = FALSE;
+	compression_threshold = 0;
 	//authenticate2("ctholdaway@gmail.com", "Corman999");
 	//authenticate2("jj4u@live.be", "Jelte123");
 	authenticate2("broskkii88@icloud.com", "Jakers01!");
@@ -426,6 +429,77 @@ packet_t decpk(packet_t pk, unsigned char *key, EVP_CIPHER_CTX *ctx)
 	return ret;
 }
 */
+
+/* turns compressed pk into uncompressed pk*/
+/* you can free pk after calling this */
+packet_t uncpk(packet_t pk)
+{
+	char **next = (char **)malloc(sizeof(char *));
+	*next = pk->data;
+	int pklen = vtois(*next, next);
+	fprintf(stderr, "pklen = %d\n", pklen);
+	int dtn = vton_raw(*next); /* length of Data Length varint */
+	fprintf(stderr, "dtn = %d\n", dtn);
+	int dtlen = vtois(*next, next);
+	fprintf(stderr, "dtlen = %d\n", dtlen);
+	packet_t ret = (packet_t)malloc(sizeof(struct packet));
+	varint_t vpklen;
+	if (dtlen == 0) {
+		vpklen = itov(pklen - 1);
+		ret->len = vpklen->len + pklen - 1;  /* remove the  data length */
+		ret->data = (char *)malloc(ret->len);
+		memcpy(ret->data, vpklen->data, vpklen->len);
+		memcpy(ret->data + vpklen->len, *next, pklen - 1);
+		return ret;
+	}
+        z_stream *strm = (z_stream *)malloc(sizeof(struct z_stream_s));
+        strm->zalloc = Z_NULL;
+        strm->zfree =  Z_NULL;
+        strm->opaque = Z_NULL;
+        strm->next_in = *next;
+        strm->avail_in = pk->len - dtn;
+        unsigned char *decomp = (unsigned char *)malloc(dtlen);
+        strm->next_out = decomp;
+        strm->avail_out = dtlen;
+
+        if (inflateInit(strm) != Z_OK) {
+	        if (strm->msg != NULL) {
+                        fprintf(stderr, "inflateInit failed, error: %s\n", strm->msg);
+                        return NULL;
+                }
+        }
+	int retval;
+ 
+        if ((retval=inflate(strm, Z_FINISH)) != Z_STREAM_END) {
+                if (strm->msg != NULL) {
+                        fprintf(stderr, "inflate failed, error: %s\n", strm->msg);
+                }
+		switch (retval) {
+		case Z_STREAM_ERROR :
+			fprintf(stderr, "Z_STREAM_ERROR\n");
+			break;
+		case Z_DATA_ERROR :
+			fprintf(stderr, "Z_DATA_ERROR\n");
+			break;
+		case Z_OK :
+			fprintf(stderr, "inflate partial progress\n");
+		default :
+			fprintf(stderr, "unknown cause of inflate failure\n");
+			break;
+		}
+                return NULL;
+        }
+	vpklen = itov(dtlen);
+	ret->len = dtlen + vpklen->len;
+	ret->data = (char *)malloc(ret->len);
+	memcpy(ret->data, vpklen->data, vpklen->len);
+	memcpy(ret->data + vpklen->len, decomp, dtlen);
+	free(decomp);
+	free(vpklen->data);
+	free(vpklen);
+	free(next);
+	return ret;
+}
 int readpk(packet_t pk)
 {
 	packet_t tmpk = pk;
@@ -433,9 +507,20 @@ int readpk(packet_t pk)
 		//fprintf(stderr, "reading encrypted packet\n");
 		if ((pk = decpk(pk, shared_secret, dec_ctx)) == NULL) {
 			fprintf(stderr, "failed to decrypt packet\n");
+			return -1;
 		}
 		free(tmpk);
 	}
+	tmpk = pk;
+	if (compression_enabled) {
+		if ((pk = uncpk(pk)) == NULL) {
+			fprintf(stderr, "failed to uncompress packet\n");
+			return -1;
+		}
+		free(tmpk);
+
+	}
+	/* read from packet id  to data */
 	char *data = pk->data;
 	int len  = pk->len;
 	while ((*data++  & 0x80) > 0)
@@ -449,11 +534,9 @@ int readpk(packet_t pk)
 		break;
 	case LOGIN_SUCCESS :
 		fprintf(stderr, "login success\n");
-		write(1, "success", 7);
 		break;
 	case SET_COMPRESSION :
 		fprintf(stderr, "compression request\n");
-		//write(1, "compress", 7);
 		handle_set_compression(data);
 		break;
 	case DISCONNECT_PLAY :
@@ -475,6 +558,7 @@ int handle_set_compression(char *data)
 {
 	compression_threshold =  vtoi_raw(data);
 	compression_enabled = TRUE;
+	return 0;
 }
 /* read Byte Array */
 char *readba(char *from, char **to, int *len)
@@ -544,6 +628,7 @@ int handle_er(char *data)
 
 	}
 	encryption_enabled = TRUE;
+	//fprintf(stderr, "enabling encryption\n");
 	EVP_CIPHER_CTX_init(dec_ctx);
 	EVP_DecryptInit_ex(dec_ctx, EVP_aes_128_cfb8(), NULL, shared_secret, shared_secret);
 	EVP_CIPHER_CTX_init(enc_ctx);
@@ -571,8 +656,6 @@ unsigned char *encrypt(unsigned  char *msg, long len, unsigned const char *pubke
 		fprintf(stderr, "failed to encrypt\n");
 		return NULL;
 	}
-	write(1, ret, retlen);
-	RSA_print_fp(stderr, rsa, 0);
 	return ret;
 	
 
