@@ -20,7 +20,10 @@
 #include "cJSON/cJSON.h"
 
 #define MAX_BYTES 500
+#define MAX_PACKET_BYTES 2097151
 #define PORT 25565
+#define PLAYER_INFO 0x36
+#define KEEP_ALIVE 0x21
 char read_buf[MAX_BYTES];
 char write_buf[MAX_BYTES];
 int read_max;
@@ -54,6 +57,7 @@ EVP_CIPHER_CTX *dec_ctx;
 int print_response;
 int handle_disconnect_login(char *data);
 int handle_set_compression(char *data);
+int server_state;
 
 int main(int argc, char **argv)
 {
@@ -63,6 +67,7 @@ int main(int argc, char **argv)
 	encryption_enabled = FALSE;
 	compression_enabled = FALSE;
 	compression_threshold = 0;
+	server_state = STATE_HANDSHAKE;
 	//authenticate2("ctholdaway@gmail.com", "Corman999");
 	//authenticate2("jj4u@live.be", "Jelte123");
 	authenticate2("broskkii88@icloud.com", "Jakers01!");
@@ -100,13 +105,14 @@ int main(int argc, char **argv)
 	int sentpk;
 	packet_t pkpk = hspk(itov(754), ctos(argv[1]), 25565, itov(2));
 	sentpk = sendpk(pkpk, sockfd);
+	server_state = STATE_LOGIN;
 	sleep(1);
 	sendpk(lipk(player_name), sockfd);
-	char buf[MAX_BYTES];
+	char buf[MAX_PACKET_BYTES];
 	int rn = 0;
 	packet_t pk;  
 	while (1){
-		if ((rn=read(sockfd,buf,MAX_BYTES)) > 0) {
+		if ((rn=read(sockfd,buf,MAX_PACKET_BYTES)) > 0) {
 			pk = (packet_t)malloc(sizeof(struct packet));
 			pk->data = (char *)malloc(rn);
 			pk->len = rn;
@@ -430,6 +436,17 @@ packet_t decpk(packet_t pk, unsigned char *key, EVP_CIPHER_CTX *ctx)
 }
 */
 
+/* return compressed pk */
+packet_t compk(packet_t pk)
+{
+	char **next = (char **)malloc(sizeof(char *));
+	*next = pk->data;
+	int pklen = vtois(*next, next);
+	packet_t ret = (packet_t)malloc(sizeof(struct packet));
+	if (pklen < compression_threshold) {
+	}
+}
+
 /* turns compressed pk into uncompressed pk*/
 /* you can free pk after calling this */
 packet_t uncpk(packet_t pk)
@@ -437,11 +454,11 @@ packet_t uncpk(packet_t pk)
 	char **next = (char **)malloc(sizeof(char *));
 	*next = pk->data;
 	int pklen = vtois(*next, next);
-	fprintf(stderr, "pklen = %d\n", pklen);
+	//fprintf(stderr, "pklen = %d\n", pklen);
 	int dtn = vton_raw(*next); /* length of Data Length varint */
-	fprintf(stderr, "dtn = %d\n", dtn);
+	//fprintf(stderr, "dtn = %d\n", dtn);
 	int dtlen = vtois(*next, next);
-	fprintf(stderr, "dtlen = %d\n", dtlen);
+	//fprintf(stderr, "dtlen = %d\n", dtlen);
 	packet_t ret = (packet_t)malloc(sizeof(struct packet));
 	varint_t vpklen;
 	if (dtlen == 0) {
@@ -511,6 +528,7 @@ int readpk(packet_t pk)
 		}
 		free(tmpk);
 	}
+//	fprintf(stderr, "readpk: pk->len = %d\n", pk->len);
 	tmpk = pk;
 	if (compression_enabled) {
 		if ((pk = uncpk(pk)) == NULL) {
@@ -525,39 +543,68 @@ int readpk(packet_t pk)
 	int len  = pk->len;
 	while ((*data++  & 0x80) > 0)
 		;
-	int state = vtoi_raw(data);
+	int pkid = vtoi_raw(data);
 	while ((*data++ & 0x80) > 0)
 		;
-	switch(state) {
-	case ENCRYPTION_REQUEST :
-		handle_er(data);
+	switch (server_state) {
+	case STATE_HANDSHAKE:
 		break;
-	case LOGIN_SUCCESS :
-		fprintf(stderr, "login success\n");
+	case STATE_LOGIN :
+		switch(pkid) {
+		case ENCRYPTION_REQUEST :
+			handle_er(data);
+			break;
+		case LOGIN_SUCCESS :
+			fprintf(stderr, "login success\n");
+			server_state = STATE_PLAY;
+			break;
+		case SET_COMPRESSION :
+			fprintf(stderr, "compression request\n");
+			handle_set_compression(data);
+			break;
+		case DISCONNECT_LOGIN :
+			fprintf(stderr, "disconnect login\n");
+			handle_disconnect_login(data);
+			break;
+		default :
+			//fprintf(stderr, "weird state: %x\n", state);
+			break;
+		}
 		break;
-	case SET_COMPRESSION :
-		fprintf(stderr, "compression request\n");
-		handle_set_compression(data);
-		break;
-	case DISCONNECT_PLAY :
-		fprintf(stderr, "disconnect play\n");
-		break;
-	case DISCONNECT_LOGIN :
-		fprintf(stderr, "disconnect login\n");
-		handle_disconnect_login(data);
+	case STATE_PLAY :
+		switch (pkid) {
+		case DISCONNECT_PLAY :
+			fprintf(stderr, "disconnect play, reason: %s\n", stoc_raw(data));
+			
+			break;
+		case KEEP_ALIVE :
+			fprintf(stderr, "got keep alive\n");
+			handle_keep_alive(data);
+			break;
+		case PLAYER_INFO :
+		//	fprintf(stderr, "player info\n");
+			break;
+		default :
+			//fprintf(stderr, "received packet id: %x\n", pkid);
+			break;
+		}
 		break;
 	default :
-		//fprintf(stderr, "weird state: %x\n", state);
+		fprintf(stderr, "unknown server state\n");
+		return -1;
 		break;
 	}
 	return 0;
 	
 	
 }
+int handle_keep_alive(char *data)
+{
+}
 int handle_set_compression(char *data)
 {
-	compression_threshold =  vtoi_raw(data);
-	compression_enabled = TRUE;
+	if ((compression_threshold =  vtoi_raw(data)) > 0)
+		comprecompression_enabled = TRUE;
 	return 0;
 }
 /* read Byte Array */

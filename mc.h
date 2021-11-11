@@ -65,3 +65,7 @@ unsigned char *shatohex(unsigned char *num);
 packet_t decpk(packet_t pk, unsigned char *key, EVP_CIPHER_CTX *ctx);
 char *stoc_raw(char *s);
 int vton_raw(char *c);
+#define STATE_LOGIN 2
+#define STATE_STATUS 1
+#define STATE_PLAY 3
+#define STATE_HANDSHAKE 0

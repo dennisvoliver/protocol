@@ -10,12 +10,14 @@
 #include "mc.h"
 
 #define MAXLINE 100
-#define STATE_HANDSHAKE 0
 #define PKID_HANDSHAKE 0
 #define PKID_LOGINSTART 0
 #define PKID_ENCRYPTION_RESPONSE 1
+/*
 #define STATE_LOGIN 2
 #define STATE_STATUS 1
+#define STATE_HANDSHAKE 0
+*/
 #define MAX_BYTES 500
 
 int server_state;
