@@ -24,6 +24,7 @@
 #define PORT 25565
 #define PLAYER_INFO 0x36
 #define KEEP_ALIVE 0x21
+#define JOIN_GAME 0x26
 char read_buf[MAX_BYTES];
 char write_buf[MAX_BYTES];
 int read_max;
@@ -58,6 +59,12 @@ int print_response;
 int handle_disconnect_login(char *data);
 int handle_set_compression(char *data);
 int server_state;
+int handle_keep_alive(char *data);
+packet_t encpk(packet_t pk, EVP_CIPHER_CTX *ctx);
+int handle_keep_alive(char *data);
+int vtoisk(char *data, char **next, int *k);
+int chopk(char *s, int n);
+char *readtcpk(int fd, int *n);
 
 int main(int argc, char **argv)
 {
@@ -111,8 +118,11 @@ int main(int argc, char **argv)
 	char buf[MAX_PACKET_BYTES];
 	int rn = 0;
 	packet_t pk;  
+	char *s;
 	while (1){
-		if ((rn=read(sockfd,buf,MAX_PACKET_BYTES)) > 0) {
+		//if ((rn=read(sockfd,buf,MAX_PACKET_BYTES)) > 0) {
+		if ((s=readtcpk(sockfd, &rn)) != NULL) {
+			/*
 			pk = (packet_t)malloc(sizeof(struct packet));
 			pk->data = (char *)malloc(rn);
 			pk->len = rn;
@@ -126,10 +136,113 @@ int main(int argc, char **argv)
 			}
 			if (readpk(pk) != 0)
 				return -1;
+			*/
+			fprintf(stderr, "received packet from server, size = %d\n", rn);
+			if (chopk(s, rn) != 0)
+				return -1;
+			free(s);
 		}
 	}
 	return 0;
 }
+
+char *readtcpk(int fd, int *n)
+{
+
+	char buf[MAX_PACKET_BYTES];
+	int rn = 0;
+	char *ret;
+	if ((rn=read(sockfd,buf,MAX_PACKET_BYTES)) <= 0)
+		return NULL;
+	ret = (char *)malloc(rn);
+	memcpy(ret, buf, rn);
+	*n = rn;
+	return ret;
+		
+}
+/* slices a continguous block of chars into packets and then reads them */
+/* does not modify s  but creates copies of its content */
+int chopk(char *s, int n)
+{
+	if (n <= 0)
+		return -1;
+	char **next = (char **)malloc(sizeof(char *));
+	char *start = *next = s;
+	int k = 0;
+	int rn = 0;
+	char *snew = NULL;
+	char *scat = NULL;
+	char *prevs = NULL;
+	packet_t pk;  
+	do {
+		pk = (packet_t)malloc(sizeof(struct packet));
+		pk->len = vtoisk(*next, next, &k);
+		pk->len += k;
+		if (pk->len > (MAX_PACKET_BYTES - 3)) {
+			fprintf(stderr, "packet length too big\n");
+			return -1;
+		}
+		/*
+		if (pk->len > n) {
+			//fprintf(stderr, "chopk: packet length reading error\n");
+			//write(1, s, n);
+			//return -1;
+		}
+		*/
+		prevs = start;
+		while (pk->len > n) {
+			fprintf(stderr, "packet was cutoff, requesting more tcp packets\n");
+			fprintf(stderr, "chopk: n = %d\n", n);
+			fprintf(stderr, "chopk: pklen  = %d\n", pk->len);
+			fprintf(stderr, "chopk: pklen + k = %d\n", pk->len);
+			if ((snew=readtcpk(sockfd, &rn)) == NULL) {
+				fprintf(stderr, "chopk: could not complete current packet\n");
+				free(next);
+				return -1;
+			}
+			scat = (char *)malloc(n + rn);
+			if (scat == NULL) {
+				fprintf(stderr, "chopk: malloc failed\n");
+				free(next);
+				return -1;
+			}
+			memcpy(scat, prevs, n);
+			memcpy(scat + n, snew, rn);
+			if (prevs != start)
+				free(prevs);
+			free(snew);
+			n += rn;
+			*next = scat;
+
+		}
+		pk->data = (char *)malloc(pk->len);
+		memcpy(pk->data, start, pk->len);
+		start = *next;
+		if (readpk(pk) != 0) {
+			free(pk->data);
+			free(pk);
+			free(next);
+			return -1;
+		}
+		n -= pk->len;
+	} while (n > 0);
+	free(next);
+	return 0;
+
+}
+
+/* same as vtois but stores length of varint to k */
+int vtoisk(char *data, char **next, int *k)
+{
+        int i = vtoi_raw(data);
+	int j = 1;
+        while ((*data++ & 0x80) > 0)
+                j += 1;
+        *next = data;
+	*k = j;
+        return i;
+}
+
 const char *hosttoip(const char *host)
 {
 	struct hostent *hostentp = gethostbyname(host);
@@ -436,15 +549,85 @@ packet_t decpk(packet_t pk, unsigned char *key, EVP_CIPHER_CTX *ctx)
 }
 */
 
+/* returns encrypted pk */
+packet_t encpk(packet_t pk, EVP_CIPHER_CTX *ctx)
+{
+        packet_t ret = (packet_t)malloc(sizeof(struct packet));
+        int block_size = EVP_CIPHER_CTX_block_size(ctx);
+        ret->len = pk->len + block_size;
+        ret->data = (char *)malloc(ret->len);
+        int outl;
+        if (!EVP_EncryptUpdate(ctx, ret->data,  &outl, pk->data, pk->len)) {
+                fprintf(stderr, "packet encryption failed\n");
+                return NULL;
+        }
+        ret->len = outl;
+        return ret;
+}
+
 /* return compressed pk */
 packet_t compk(packet_t pk)
 {
 	char **next = (char **)malloc(sizeof(char *));
 	*next = pk->data;
 	int pklen = vtois(*next, next);
+	varint_t vpklen = itov(pklen);
 	packet_t ret = (packet_t)malloc(sizeof(struct packet));
+	char *pin;
 	if (pklen < compression_threshold) {
+		pin = ret->data = (char *)malloc(pk->len + 1);
+		memcpy(pin, vpklen->data, vpklen->len);
+		pin += vpklen->len;
+		*pin++ = 0; /* data length 0 to signal noncompression */
+		memcpy(pin, *next, pklen);
+		ret->len = pklen + 1;
+		return ret;
 	}
+        z_stream *strm = (z_stream *)malloc(sizeof(struct z_stream_s));
+        strm->zalloc = Z_NULL;
+        strm->zfree =  Z_NULL;
+        strm->opaque = Z_NULL;
+        strm->next_in = *next;
+        strm->avail_in = pklen;
+        unsigned char *comp = (unsigned char *)malloc(pklen);
+        strm->next_out = comp;
+        strm->avail_out = pklen;
+
+        if (deflateInit(strm, Z_DEFAULT_COMPRESSION) != Z_OK) {
+	        if (strm->msg != NULL) {
+                        fprintf(stderr, "deflateInit failed, error: %s\n", strm->msg);
+                        return NULL;
+                }
+        }
+	int retval;
+        if ((retval=deflate(strm, Z_NO_FLUSH)) != Z_STREAM_END) {
+	        if (strm->msg != NULL) {
+                        fprintf(stderr, "deflate failed, error: %s\n", strm->msg);
+                        return NULL;
+                }
+		return NULL;
+	}
+	int cpklen = strm->total_out + vpklen->len;
+	varint_t vcpklen = itov(cpklen);
+
+	ret->len = vcpklen->len + vpklen->len + strm->total_out;
+	pin = ret->data = (char *)malloc(ret->len);
+	memcpy(pin, vcpklen->data, vcpklen->len);
+	pin += vcpklen->len;
+	memcpy(pin, vpklen->data, vpklen->len);
+	pin += vpklen->len;
+	memcpy(pin, comp, strm->total_out);
+
+	free(vcpklen->data);
+	free(vcpklen);
+	free(vpklen->data);
+	free(vpklen);
+	free(comp);
+	free(next);
+
+
+	return ret;
+
 }
 
 /* turns compressed pk into uncompressed pk*/
@@ -567,7 +750,7 @@ int readpk(packet_t pk)
 			handle_disconnect_login(data);
 			break;
 		default :
-			//fprintf(stderr, "weird state: %x\n", state);
+			fprintf(stderr, "readpk: weird id = %d, pklen = %d\n", pkid, pk->len);
 			break;
 		}
 		break;
@@ -584,8 +767,11 @@ int readpk(packet_t pk)
 		case PLAYER_INFO :
 		//	fprintf(stderr, "player info\n");
 			break;
+		case JOIN_GAME :
+			fprintf(stderr, "received join game\n");
+			break;
 		default :
-			//fprintf(stderr, "received packet id: %x\n", pkid);
+			fprintf(stderr, "readpk: weird id = %d, pklen = %d\n", pkid, pk->len);
 			break;
 		}
 		break;
@@ -600,11 +786,39 @@ int readpk(packet_t pk)
 }
 int handle_keep_alive(char *data)
 {
+	packet_t retpk;
+	retpk = (packet_t)malloc(sizeof(struct packet));
+	retpk->data = data;
+	retpk->len = 8;
+	packet_t tempk = retpk;
+	retpk = wrapck(0x0f, retpk);
+	fprintf(stderr, "free 1\n");
+	free(tempk);
+	tempk = retpk;
+	if ((retpk = compk(retpk)) == NULL) {
+		fprintf(stderr, "error handle_keep_alive: could not compress packet\n");
+		return -1;
+	}
+	fprintf(stderr, "free 2\n");
+	free(tempk);
+	tempk = retpk;
+	if ((retpk = encpk(retpk, enc_ctx)) == NULL) {
+		fprintf(stderr, "error handle_keep_alive: could not encrypt packet\n");
+		return -1;
+	}
+	fprintf(stderr, "free 3\n");
+	free(tempk);
+	if (sendpk(retpk, sockfd) != retpk->len) {
+		fprintf(stderr, "error handle_keep_alive: could not send packet\n");
+		return -1;
+	}
+	return 0;
+
 }
 int handle_set_compression(char *data)
 {
 	if ((compression_threshold =  vtoi_raw(data)) > 0)
-		comprecompression_enabled = TRUE;
+		compression_enabled = TRUE;
 	return 0;
 }
 /* read Byte Array */
