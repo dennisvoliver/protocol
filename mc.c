@@ -146,6 +146,23 @@ int main(int argc, char **argv)
 	return 0;
 }
 
+packet_t getpk()
+{
+	static char buf[MAX_PACKET_BUF + 1];
+	static char *start = buf;
+	static char *end = buf + MAX_PACKET_BUF - 1;
+	char **next;
+	*next = start;
+	int k = 0;
+	int pklen = vtoisk(*next, next, &k);
+	if (*next >= buf + MAX_PACKET_BUF) // because *next points to the byte AFTER the packet length
+		(*next)--;
+	if () {
+	}
+
+
+}
+
 char *readtcpk(int fd, int *n)
 {
 
