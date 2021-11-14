@@ -27,7 +27,7 @@
 #define JOIN_GAME 0x26
 #define PARTICLE 0x24
 #define BOSS_BAR 0x0d
-#define SET_COOLDOWN 0x17
+#define PLUGIN_MESSAGE 0x17
 char read_buf[MAX_BYTES];
 char write_buf[MAX_BYTES];
 int read_max;
@@ -135,6 +135,7 @@ int main(int argc, char **argv)
 	server_state = STATE_LOGIN;
 	sleep(1);
 	sendpk(lipk(player_name), sockfd);
+	fprintf(stderr, "player name: %s\n", player_name);
 	char buf[MAX_PACKET_BYTES];
 	int rn = 0;
 	packet_t pk;  
@@ -142,8 +143,8 @@ int main(int argc, char **argv)
 	//while ((pk=getpk()) != NULL){
 	while (1){
 		//if ((rn=read(sockfd,buf,MAX_PACKET_BYTES)) > 0) {
-		if ((pk=getpk()) != NULL) {
-		//if ((pk=fetchpk()) != NULL) {
+		//if ((pk=getpk()) != NULL) {
+		if ((pk=fetchpk()) != NULL) {
 			/*
 			pk = (packet_t)malloc(sizeof(struct packet));
 			pk->data = (char *)malloc(rn);
@@ -177,25 +178,21 @@ packet_t fetchpk()
 		fprintf(stderr, "fetchpk: read failed\n");
 		return NULL;
 	}
-	/*
-	char *buf2;
-	if (rn == 4) {
-		buf2 = (char *)malloc(4);
-		memcpy(buf2, buf, 4);
-		write(1, buf2, 4);
-		//exit(-1);
-	}
-	*/
 
 	//fprintf(stderr, "received packets from server, size = %d\n", rn);
 	packet_t pk = (packet_t)malloc(sizeof(struct packet));
 	pk->data = (char *)malloc(rn);
 	pk->len = rn;
 	memcpy(pk->data, buf, pk->len);
-	/*
-	if (pk->len == 4)
-		write(1, pk->data, pk->len);
-	*/
+	packet_t tmpk = pk;
+	if (encryption_enabled) {
+		//fprintf(stderr, "reading encrypted packet\n");
+		if ((pk = decpk(pk, shared_secret, dec_ctx)) == NULL) {
+			fprintf(stderr, "failed to decrypt packet\n");
+			return NULL;
+		}
+		free(tmpk);
+	}
 	//fprintf(stderr, "received packet from server, size = %d\n", rn);
 	return pk;
 
@@ -326,6 +323,8 @@ packet_t getpk(void)
 	buf->start += len;
 	buf->avail -= len;
 	fprintf(stderr, "getpk done: len = %d, buf->avail = %d\n", len, buf->avail);
+	//write(1, "xxxxxxxxxxxxxxxx", 16);
+	//write(1, ret->data, ret->len);
 	return ret;
 }
 
@@ -920,8 +919,16 @@ int readpk(packet_t pk)
 	/* read from packet id  to data */
 	char *data = pk->data;
 	int len  = pk->len;
+	int k = 1;
+	int pklen = vtoi_raw(data);
 	while ((*data++  & 0x80) > 0)
-		;
+		k++;
+	fprintf(stderr, "pklen=%d,k=%d,pk->len=%d\n", pklen, k, pk->len);
+	if ((pklen + k) != pk->len) {
+		fprintf(stderr, "pklen + k != pk->len, pklen=%d,k=%d,pk->len=%d\n", pklen, k, pk->len);
+		write(1, "xxxxxxxxxx", 10);
+		write(1, pk->data, pk->len);
+	}
 	int pkid = vtoi_raw(data);
 	while ((*data++ & 0x80) > 0)
 		;
@@ -955,8 +962,8 @@ int readpk(packet_t pk)
 		break;
 	case STATE_PLAY :
 		switch (pkid) {
-		case SET_COOLDOWN :
-			fprintf(stderr, "set cooldown\n");
+		case PLUGIN_MESSAGE :
+			fprintf(stderr, "plugin message\n");
 			//write(1, pk->data, pk->len);
 			break;
 		case DISCONNECT_PLAY :
@@ -966,7 +973,7 @@ int readpk(packet_t pk)
 		case KEEP_ALIVE :
 			fprintf(stderr, "got keep alive\n");
 			handle_keep_alive(data);
-			write(1, "keep alive", 10);
+			//write(1, "keep alive", 10);
 			break;
 		case PLAYER_INFO :
 		//	fprintf(stderr, "player info\n");
