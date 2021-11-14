@@ -25,6 +25,9 @@
 #define PLAYER_INFO 0x36
 #define KEEP_ALIVE 0x21
 #define JOIN_GAME 0x26
+#define PARTICLE 0x24
+#define BOSS_BAR 0x0d
+#define SET_COOLDOWN 0x17
 char read_buf[MAX_BYTES];
 char write_buf[MAX_BYTES];
 int read_max;
@@ -65,9 +68,26 @@ int handle_keep_alive(char *data);
 int vtoisk(char *data, char **next, int *k);
 int chopk(char *s, int n);
 char *readtcpk(int fd, int *n);
+int vtoik(char *data, int *k);
+int initbuf(void);
+int filbuf(void);
+packet_t getpk();
+typedef  struct pkbuf_s {
+	char buf[MAX_PACKET_BYTES + 1];
+	char *start;
+	int avail;
+} *pkbuf_t;
+
+pkbuf_t packets_buffer;
+
+packet_t fetchpk();
 
 int main(int argc, char **argv)
 {
+	if (initbuf() < 0) {
+		fprintf(stderr, "main: failed to initialize packets buffer\n");
+		return -1;
+	}
 	print_response = FALSE;	
 	dec_ctx = EVP_CIPHER_CTX_new();
 	enc_ctx = EVP_CIPHER_CTX_new();
@@ -119,9 +139,11 @@ int main(int argc, char **argv)
 	int rn = 0;
 	packet_t pk;  
 	char *s;
+	//while ((pk=getpk()) != NULL){
 	while (1){
 		//if ((rn=read(sockfd,buf,MAX_PACKET_BYTES)) > 0) {
-		if ((s=readtcpk(sockfd, &rn)) != NULL) {
+		if ((pk=getpk()) != NULL) {
+		//if ((pk=fetchpk()) != NULL) {
 			/*
 			pk = (packet_t)malloc(sizeof(struct packet));
 			pk->data = (char *)malloc(rn);
@@ -137,30 +159,174 @@ int main(int argc, char **argv)
 			if (readpk(pk) != 0)
 				return -1;
 			*/
-			fprintf(stderr, "received packet from server, size = %d\n", rn);
-			if (chopk(s, rn) != 0)
+			//fprintf(stderr, "received packet from server, size = %d\n", rn);
+			if (readpk(pk) != 0)
 				return -1;
-			free(s);
-		}
+		//	free(pk);
+			//free(s);
+		} else
+			return -1;
 	}
 	return 0;
 }
+packet_t fetchpk()
+{
+	int rn;
+	char buf[MAX_PACKET_BYTES + 1];
+	if ((rn=read(sockfd,buf,MAX_PACKET_BYTES)) <= 0) { 
+		fprintf(stderr, "fetchpk: read failed\n");
+		return NULL;
+	}
+	/*
+	char *buf2;
+	if (rn == 4) {
+		buf2 = (char *)malloc(4);
+		memcpy(buf2, buf, 4);
+		write(1, buf2, 4);
+		//exit(-1);
+	}
+	*/
 
+	//fprintf(stderr, "received packets from server, size = %d\n", rn);
+	packet_t pk = (packet_t)malloc(sizeof(struct packet));
+	pk->data = (char *)malloc(rn);
+	pk->len = rn;
+	memcpy(pk->data, buf, pk->len);
+	/*
+	if (pk->len == 4)
+		write(1, pk->data, pk->len);
+	*/
+	//fprintf(stderr, "received packet from server, size = %d\n", rn);
+	return pk;
+
+}
+
+	/*
 packet_t getpk()
 {
-	static char buf[MAX_PACKET_BUF + 1];
+	static char buf[MAX_PACKET_BYTES + 1];
 	static char *start = buf;
-	static char *end = buf + MAX_PACKET_BUF - 1;
-	char **next;
-	*next = start;
+	static char *end = start; 
+	static int avail = end - start;
+	int read = 0;
+	if (avail == 0) {
+		if ((read=read(sockfd,buf,MAX_PACKET_BYTES)) <= 0) {
+			fprintf(stderr, "getpk error: failed to read from sockfd = %d\n", sockfd);
+			return NULL;
+		}
+		end = start + read;
+	}
 	int k = 0;
-	int pklen = vtoisk(*next, next, &k);
-	if (*next >= buf + MAX_PACKET_BUF) // because *next points to the byte AFTER the packet length
-		(*next)--;
-	if () {
+	int pklen = vtoik(start, &k);
+	packet_t ret = (packet_t)malloc(sizeof(struct packet));
+	ret->len = pklen + k;
+	ret->data = (char *)malloc(ret->len);
+	int len = ret->len;
+	char *data = ret->data;
+	while (len > avail) {
+		memcpy(data, start, avail);
+		len -= avail;
+		data += avail;
+		if ((avail=read(sockfd,buf,MAX_PACKET_BYTES)) <= 0) {
+			fprintf(stderr, "getpk error: failed to read from sockfd, read = %d\n", avail);
+			return NULL;
+		}
+		start = buf;
+	}
+	memcpy(data, start, len);
+	start += len;
+	avail -= len;
+	return ret;
+
+
+}
+*/
+
+
+int filbuf(void)
+{
+	pkbuf_t buf = packets_buffer;
+	if ((buf->avail=read(sockfd,buf->buf, MAX_PACKET_BYTES)) <= 0) {
+		fprintf(stderr, "filbuf: socket read failed\n");
+		return 0;
+
+	}
+	packet_t tmpk, pk;
+	if (encryption_enabled) {
+		tmpk = pk = (packet_t)malloc(sizeof(struct packet));	
+		pk->data = buf->buf;
+		pk->len = buf->avail;
+		//fprintf(stderr, "reading encrypted packet\n");
+		if ((pk = decpk(pk, shared_secret, dec_ctx)) == NULL) {
+			fprintf(stderr, "failed to decrypt packet\n");
+			return -1;
+		}
+		memcpy(buf->buf, pk->data, pk->len);
+		free(tmpk);
+		free(pk);
+	}
+	buf->start = buf->buf;
+	return buf->avail;
+}
+
+int initbuf(void)
+{
+	packets_buffer = (pkbuf_t)malloc(sizeof(struct pkbuf_s));
+	pkbuf_t buf = packets_buffer;
+	if (buf == NULL) {
+		fprintf(stderr, "initbuf: error, malloc failed\n");
+		return -1;
+	}
+	buf->start = buf->buf;
+	buf->avail = 0;
+	return 0;
+}
+
+packet_t getpk(void)
+{
+	pkbuf_t buf = packets_buffer;
+	if (buf->avail == 0) {
+		if (filbuf() <= 0) 
+			return NULL;
+
+	}
+	//fprintf(stderr, "getpk called, avail = %d\n", buf->avail);
+	int k = 0;
+	int pklen = vtoik(buf->start, &k);
+	fprintf(stderr, "getpk called: pklen = %d, k = %d, avail = %d\n", pklen, k, buf->avail);
+	if (pklen < 1) {
+		fprintf(stderr, "packet length < 1, pklen = %d", pklen);
+		//write(1, buf->start, buf->avail);
+		return NULL;
+	}
+	packet_t ret = (packet_t)malloc(sizeof(struct packet));
+	ret->len = k + pklen;
+	if (ret->len > MAX_PACKET_BYTES) {
+	//if (ret->len > 1000) {
+		fprintf(stderr, "packet length too big, k = %d, pklen = %d\n", k, pklen);
+		return NULL;
+	}
+	ret->data = (char *)malloc(ret->len);
+	int len = ret->len;
+	char *data = ret->data;
+	while (len > buf->avail) {
+		fprintf(stderr, "getpk: packet incomplete, len = %d, buf->avail = %d, pklen = %d, k = %d\n", len, buf->avail, pklen, k);
+		memcpy(data, buf->start, buf->avail);
+		len -= buf->avail;
+		data += buf->avail;
+		if (filbuf() <= 0) {
+			fprintf(stderr, "getpk: can't fill packets buffer\n");
+			return NULL;
+
+		}
+	//	end = buf + avail;
 	}
 
-
+	memcpy(data, buf->start, len);
+	buf->start += len;
+	buf->avail -= len;
+	fprintf(stderr, "getpk done: len = %d, buf->avail = %d\n", len, buf->avail);
+	return ret;
 }
 
 char *readtcpk(int fd, int *n)
@@ -246,6 +412,17 @@ int chopk(char *s, int n)
 	free(next);
 	return 0;
 
+}
+
+/* same as vtoisk but doesn't save next pointer */
+int vtoik(char *data, int *k)
+{
+        int i = vtoi_raw(data);
+	int j = 1;
+        while ((*data++ & 0x80) > 0)
+		j++;
+	*k = j;
+        return i;
 }
 
 /* same as vtois but stores length of varint to k */
@@ -720,6 +897,7 @@ packet_t uncpk(packet_t pk)
 int readpk(packet_t pk)
 {
 	packet_t tmpk = pk;
+	/*
 	if (encryption_enabled) {
 		//fprintf(stderr, "reading encrypted packet\n");
 		if ((pk = decpk(pk, shared_secret, dec_ctx)) == NULL) {
@@ -728,6 +906,7 @@ int readpk(packet_t pk)
 		}
 		free(tmpk);
 	}
+	*/
 //	fprintf(stderr, "readpk: pk->len = %d\n", pk->len);
 	tmpk = pk;
 	if (compression_enabled) {
@@ -752,6 +931,7 @@ int readpk(packet_t pk)
 	case STATE_LOGIN :
 		switch(pkid) {
 		case ENCRYPTION_REQUEST :
+			fprintf(stderr, "encryption request\n");
 			handle_er(data);
 			break;
 		case LOGIN_SUCCESS :
@@ -759,7 +939,9 @@ int readpk(packet_t pk)
 			server_state = STATE_PLAY;
 			break;
 		case SET_COMPRESSION :
-			fprintf(stderr, "compression request\n");
+			fprintf(stderr, "set compression\n");
+			//fprintf(stderr, "readpk: = %d, pklen = %d\n", pkid, pk->len);
+			//write(1, pk->data, pk->len);
 			handle_set_compression(data);
 			break;
 		case DISCONNECT_LOGIN :
@@ -773,6 +955,10 @@ int readpk(packet_t pk)
 		break;
 	case STATE_PLAY :
 		switch (pkid) {
+		case SET_COOLDOWN :
+			fprintf(stderr, "set cooldown\n");
+			//write(1, pk->data, pk->len);
+			break;
 		case DISCONNECT_PLAY :
 			fprintf(stderr, "disconnect play, reason: %s\n", stoc_raw(data));
 			
@@ -780,12 +966,21 @@ int readpk(packet_t pk)
 		case KEEP_ALIVE :
 			fprintf(stderr, "got keep alive\n");
 			handle_keep_alive(data);
+			write(1, "keep alive", 10);
 			break;
 		case PLAYER_INFO :
 		//	fprintf(stderr, "player info\n");
 			break;
 		case JOIN_GAME :
 			fprintf(stderr, "received join game\n");
+			break;
+		case PARTICLE :
+			write(1, pk->data, pk->len);
+			fprintf(stderr, "particle\n");
+			break;
+		case BOSS_BAR :
+			//write(1, pk->data, pk->len);
+			fprintf(stderr, "boss bar\n");
 			break;
 		default :
 			fprintf(stderr, "readpk: weird id = %d, pklen = %d\n", pkid, pk->len);
@@ -803,28 +998,29 @@ int readpk(packet_t pk)
 }
 int handle_keep_alive(char *data)
 {
+	fprintf(stderr, "handling keep alive\n");
 	packet_t retpk;
 	retpk = (packet_t)malloc(sizeof(struct packet));
 	retpk->data = data;
 	retpk->len = 8;
 	packet_t tempk = retpk;
 	retpk = wrapck(0x0f, retpk);
-	fprintf(stderr, "free 1\n");
-	free(tempk);
+	//fprintf(stderr, "free 1\n");
+	//free(tempk);
 	tempk = retpk;
 	if ((retpk = compk(retpk)) == NULL) {
 		fprintf(stderr, "error handle_keep_alive: could not compress packet\n");
 		return -1;
 	}
-	fprintf(stderr, "free 2\n");
-	free(tempk);
+	//fprintf(stderr, "free 2\n");
+	//free(tempk);
 	tempk = retpk;
 	if ((retpk = encpk(retpk, enc_ctx)) == NULL) {
 		fprintf(stderr, "error handle_keep_alive: could not encrypt packet\n");
 		return -1;
 	}
-	fprintf(stderr, "free 3\n");
-	free(tempk);
+	//fprintf(stderr, "free 3\n");
+	//free(tempk);
 	if (sendpk(retpk, sockfd) != retpk->len) {
 		fprintf(stderr, "error handle_keep_alive: could not send packet\n");
 		return -1;

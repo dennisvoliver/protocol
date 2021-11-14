@@ -82,6 +82,7 @@ string_t ctos(const char *c)
 	return s;
 
 }
+/*  this function frees pack so don't free it again */
 packet_t wrapck(int id, packet_t pack)
 {
 	packet_t ret = (packet_t)malloc(sizeof(struct packet));
