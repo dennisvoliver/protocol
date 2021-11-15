@@ -23,11 +23,14 @@
 #define MAX_PACKET_BYTES 2097151
 #define PORT 25565
 #define PLAYER_INFO 0x36
-#define KEEP_ALIVE 0x21
-#define JOIN_GAME 0x26
-#define PARTICLE 0x24
-#define BOSS_BAR 0x0d
+#define KEEP_ALIVE 0x1f
+#define JOIN_GAME 0x24
+#define PARTICLE 0x22
+#define BOSS_BAR 0x0c
 #define PLUGIN_MESSAGE 0x17
+#define DECLARE_RECIPES 0x5a
+#define TAGS 0x5b
+#define ENTITY_STATUS 0x1a
 char read_buf[MAX_BYTES];
 char write_buf[MAX_BYTES];
 int read_max;
@@ -975,14 +978,25 @@ int readpk(packet_t pk)
 			handle_keep_alive(data);
 			//write(1, "keep alive", 10);
 			break;
+		case DECLARE_RECIPES :
+			fprintf(stderr, "declare recipes\n");
+			break;
+		case TAGS :
+			fprintf(stderr, "tags\n");
+			break;
 		case PLAYER_INFO :
 		//	fprintf(stderr, "player info\n");
 			break;
 		case JOIN_GAME :
 			fprintf(stderr, "received join game\n");
 			break;
-		case PARTICLE :
+		case ENTITY_STATUS :
+			fprintf(stderr, "entity status\n");
+			write(1, "xxxxxxxxxx", 10);
 			write(1, pk->data, pk->len);
+			break;
+		case PARTICLE :
+			//write(1, pk->data, pk->len);
 			fprintf(stderr, "particle\n");
 			break;
 		case BOSS_BAR :

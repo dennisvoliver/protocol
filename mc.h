@@ -50,7 +50,7 @@ unsigned char *shatohex(unsigned char *num);
 #define SET_COMPRESSION 0x03
 #define LOGIN_SUCCESS 0x02
 #define DISCONNECT_LOGIN 0x00
-#define DISCONNECT_PLAY 0x1a
+#define DISCONNECT_PLAY 0x19
 #define TRUE 1
 #define FALSE 0
 #include <openssl/sha.h>
