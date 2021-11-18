@@ -62,10 +62,17 @@ unsigned char *shatohex(unsigned char *num);
 #include <openssl/bn.h>
 #include <unistd.h>
 #include <zlib.h>
-packet_t decpk(packet_t pk, unsigned char *key, EVP_CIPHER_CTX *ctx);
 char *stoc_raw(char *s);
 int vton_raw(char *c);
 #define STATE_LOGIN 2
 #define STATE_STATUS 1
 #define STATE_PLAY 3
 #define STATE_HANDSHAKE 0
+packet_t encpk(packet_t pk, EVP_CIPHER_CTX *ctx);
+packet_t decpk(packet_t pk, unsigned char *key, EVP_CIPHER_CTX *ctx);
+packet_t uncpk(packet_t pk);
+packet_t compk(packet_t pk, int threshold);
+//int send_packet(packet_t retpk);
+//int send_packet(packet_t retpk, int sock, int cmp, int enc, int thres);
+int send_packet(packet_t retpk, int sock, int cmp, int enc, int thres, EVP_CIPHER_CTX *ctx);
+packet_t receive_packet(int sock, int cmp, int enc, unsigned char *ss, EVP_CIPHER_CTX *ctx);

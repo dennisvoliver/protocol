@@ -43,7 +43,7 @@ packet_t mker();
 int handle_loginstart(packet_t pk);
 int handle_handshake(packet_t pk);
 int handle_connection(int sockfd);
-int send_packet(packet_t pk);
+int sendpacket(packet_t pk);
 int handle_encryption_response(packet_t pk);
 
 int main(int argc, char **argv)
@@ -217,14 +217,14 @@ int handle_loginstart(packet_t pk)
 		fprintf(stderr, "failed to create encryption request packet\n");
 		return -1;
 	}
-	if(send_packet(ret) <= 0) {
+	if(sendpacket(ret) <= 0) {
 		fprintf(stderr, "failed to send encryption packet\n");
 		return -1;
 	}
 
 }
 /* sendpk wrapper */
-int send_packet(packet_t pk)
+int sendpacket(packet_t pk)
 {
 	//write(1, pk->data, pk->len);
 	return sendpk(pk, connfd);
