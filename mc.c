@@ -1586,7 +1586,8 @@ packet_t handshake_packet(varint_t proto, char *addr, unsigned short int port, v
 /* client settings */
 packet_t cspk()
 {
-	const char *locale = "en_GB";
+	//const char *locale = "en_GB";
+	string_t locale = ctos("en_BG");
 	char view_distance = 1;
 	varint_t chat_mode = itov(2); // hidden
 	char colors = 0; // no colors
@@ -1594,11 +1595,11 @@ packet_t cspk()
 	varint_t main_hand = itov(1); // right hand
 	char disable_text_filtering = 1; //disabled
 	packet_t ret = (packet_t)malloc(sizeof(struct packet));
-	ret->len = strlen(locale) + 1 + chat_mode->len + 2 + main_hand->len + 1;
+	ret->len = locale->len + 1 + chat_mode->len + 1 + main_hand->len + 1;
 	ret->data = (char *)malloc(ret->len);
 	char *data = ret->data;
-	memcpy(data, locale, strlen(locale));
-	data += strlen(locale);
+	memcpy(data, locale->data, locale->len);
+	data += locale->len;
 	*data++ = view_distance;
 	memcpy(data, chat_mode->data, chat_mode->len);
 	data += chat_mode->len;
