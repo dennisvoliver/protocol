@@ -38,6 +38,9 @@
 #define PLUGIN_REQUEST 0x04
 #define PLUGIN_RESPONSE 0x02
 #define CLIENT_SETTINGS 0x05
+#define PLAYER_POSITION_LOOK 0x34
+#define TELEPORT_CONFIRM 0x00
+
 char read_buf[MAX_BYTES];
 char write_buf[MAX_BYTES];
 int read_max;
@@ -98,6 +101,8 @@ packet_t recpack();
 int freepk(packet_t pk);
 packet_t encryptpk(packet_t pk);
 int handle_plugin_request(packet_t pk);
+int handle_ppl(packet_t pk);
+packet_t tcpk(int tpid);
 
 int main(int argc, char **argv)
 {
@@ -1058,6 +1063,12 @@ int readpk(packet_t pk)
 		break;
 	case STATE_PLAY :
 		switch (pkid) {
+		case PLAYER_POSITION_LOOK :
+			fprintf(stderr, "got player position and look\n");
+			if (handle_ppl(pk) < 0){
+				fprintf(stderr, "could not handle player position and look\n");
+			}
+			break;
 		case PLUGIN_MESSAGE :
 			fprintf(stderr, "plugin message\n");
 			//write(1, pk->data, pk->len);
@@ -1118,6 +1129,94 @@ int readpk(packet_t pk)
 	
 }
 
+/*
+// binary string to double
+double stod(char *s)
+{
+	int i = 0;
+	unsigned char bit = 0x80 & s[i];
+	unsigned short  exp = 0x7f & s[i];
+	exp <<= 4;
+	i++;
+	exp += ((unsigned char (s[i] & 0xf0)) >> 4);
+	i++;
+	double sig = s[i] & 0x0f;
+	sig <<= 8;
+	i++;
+
+
+
+
+
+}
+*/
+
+int handle_ppl(packet_t pk)
+{
+	write(1, pk->data, pk->len);
+	char *data = pk->data;
+	char len = pk->len;
+	int k;
+	int pklen = vtoik(data, &k);
+	data += k;
+	len -= k;
+	int pkid = vtoik(data, &k);
+	data += k;
+	len -= k;
+	double x = *((double *)((void *)data));
+	data += 8;
+	len -= 8;
+	double y = *((double *)data);
+	data += 8;
+	len -= 8;
+	double z = *((double *)data);
+	data += 8;
+	len -= 8;
+	float yaw = *((float *)data);
+	data += 4;
+	len -= 4;
+	float pitch = *((float *)data);
+	data += 4;
+	len -= 4;
+	fprintf(stderr, "handle_ppl: x = %g, y = %g, z = %g, pitch = %g, yaw = %g\n", x, y, z, pitch, yaw);
+	fprintf(stderr, "handle_ppl: x = %f, y = %f, z = %f, pitch = %f, yaw = %f\n", x, y, z, pitch, yaw);
+	char flags = *data;
+	data++;
+	len--;
+	int tpid = vtoik(data, &k);
+	data += k;
+	len -= k;
+	//char dismount = *data;
+	//len--;
+	/*
+	if (len != 0) {
+		if (len > 0)
+			fprintf(stderr, "handle_ppl: packet underflow, len = %d\n", len);
+		else
+			fprintf(stderr, "handle_ppl: packet overflow, len = %d\n", len);
+		return -1;
+	}
+	*/
+
+	if(sendpack(tcpk(tpid)) < 0) {
+		fprintf(stderr, "failed to send teleport confirm packet\n");
+		return -1;
+	}
+	return 0;
+
+}
+
+// teleport confirm packet
+packet_t tcpk(int tpid)
+{
+	varint_t tpidv = itov(tpid);
+	packet_t ret = (packet_t)malloc(sizeof(struct packet));
+	ret->data = tpidv->data;
+	ret->len = tpidv->len;
+	return wrapck(TELEPORT_CONFIRM, ret);
+
+}
+
 int handle_plugin_request(packet_t pk)
 {
 	char *data = pk->data;
@@ -1161,8 +1260,8 @@ int sendpack(packet_t pk)
 }
 int handle_keep_alive(packet_t pk)
 {
-	write(1, "aaaaaaaaaa", 10);
-	write(1, pk->data, pk->len);
+	//write(1, "aaaaaaaaaa", 10);
+	//write(1, pk->data, pk->len);
 	int k, l;
 	vtoik(pk->data, &k);
 	vtoik(pk->data + k, &l);
@@ -1176,8 +1275,8 @@ int handle_keep_alive(packet_t pk)
 	memcpy(retpk->data, pk->data + (k + l), retpk->len);
 	packet_t tempk = retpk;
 	retpk = wrapck(KEEP_ALIVE_C2S, retpk);
-	write(1, "yyyyyyyyyy", 10);
-	write(1, retpk->data, retpk->len);
+	//write(1, "yyyyyyyyyy", 10);
+	//write(1, retpk->data, retpk->len);
 	if (retpk == NULL) {
 		fprintf(stderr, "handle_keep_alive: failed to wrap packet\n");
 		return -1;
@@ -1191,8 +1290,8 @@ int handle_keep_alive(packet_t pk)
 		}
 		freepk(tempk);
 	}
-	write(1, "bbbbbbbbbb", 10);
-	write(1, retpk->data, retpk->len);
+	//write(1, "bbbbbbbbbb", 10);
+	//write(1, retpk->data, retpk->len);
 	if (encryption_enabled) {
 		tempk = retpk;
 		if ((retpk = encryptpk(retpk)) == NULL) {
@@ -1202,8 +1301,8 @@ int handle_keep_alive(packet_t pk)
 		}
 		freepk(tempk);
 	}
-	write(1, "xxxxxxxxxx", 10);
-	write(1, retpk->data, retpk->len);
+	//write(1, "xxxxxxxxxx", 10);
+	//write(1, retpk->data, retpk->len);
 	if (sendpk(retpk, sockfd) != retpk->len) {
 		fprintf(stderr, "error handle_keep_alive: could not send packet\n");
 		return -1;

@@ -256,8 +256,8 @@ packet_t uncpk(packet_t pk)
 }
 packet_t compk(packet_t pk, int threshold)
 {
-	write(1, "rrrrrrrrrr", 10);
-	write(1, pk->data, pk->len);
+	//write(1, "rrrrrrrrrr", 10);
+	//write(1, pk->data, pk->len);
 	char **next = (char **)malloc(sizeof(char *));
 	*next = pk->data;
 	int pklen = vtois(*next, next);
@@ -276,8 +276,8 @@ packet_t compk(packet_t pk, int threshold)
 		*pin++ = 0; // data length 0 to signal noncompression //
 		memcpy(pin, *next, pklen);
 		fprintf(stderr, "ret->len = %d\n", ret->len);
-		write(1, "dddddddddd", 10);
-		write(1, ret->data, ret->len);
+//		write(1, "dddddddddd", 10);
+//		write(1, ret->data, ret->len);
 		fprintf(stderr, "compk: varint packet length %d\n", vtoi_raw(ret->data));
 		return ret;
 	}
