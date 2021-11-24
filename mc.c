@@ -1153,17 +1153,22 @@ double stod(char *s)
 
 int handle_ppl(packet_t pk)
 {
+	fprintf(stderr, "handle_ppl: len = %d\n", pk->len);
 	write(1, pk->data, pk->len);
 	char *data = pk->data;
 	char len = pk->len;
 	int k;
 	int pklen = vtoik(data, &k);
+	fprintf(stderr, "handle_ppl: pklen = %d\n", pklen);
 	data += k;
 	len -= k;
 	int pkid = vtoik(data, &k);
+	fprintf(stderr, "handle_ppl: pkid = %d\n", pkid);
 	data += k;
 	len -= k;
 	double x = *((double *)((void *)data));
+	write(1, "xxxxx", 5);
+	write(1, &x, 8);
 	data += 8;
 	len -= 8;
 	double y = *((double *)data);
@@ -1256,7 +1261,7 @@ int handle_join_game(char *data)
 }
 int sendpack(packet_t pk)
 {
-	return send_packet(cspk(), sockfd, compression_enabled, encryption_enabled, compression_threshold, enc_ctx);
+	return send_packet(pk, sockfd, compression_enabled, encryption_enabled, compression_threshold, enc_ctx);
 }
 int handle_keep_alive(packet_t pk)
 {
