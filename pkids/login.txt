@@ -1,0 +1,8 @@
+(LoginDisconnectS2CPacket.class, LoginDisconnectS2CPacket::new).register
+(LoginHelloS2CPacket.class, LoginHelloS2CPacket::new).register
+(LoginSuccessS2CPacket.class, LoginSuccessS2CPacket::new).register
+(LoginCompressionS2CPacket.class, LoginCompressionS2CPacket::new).register
+(LoginQueryRequestS2CPacket.class, LoginQueryRequestS2CPacket::new)).setup(NetworkSide.SERVERBOUND, (new NetworkState.PacketHandler()).register
+(LoginHelloC2SPacket.class, LoginHelloC2SPacket::new).register
+(LoginKeyC2SPacket.class, LoginKeyC2SPacket::new).register
+(LoginQueryResponseC2SPacket.class, LoginQueryResponseC2SPacket::new)));

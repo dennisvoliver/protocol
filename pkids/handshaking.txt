@@ -1,0 +1,1 @@
+(HandshakeC2SPacket.class, HandshakeC2SPacket::new))),

@@ -103,12 +103,7 @@ packet_t encryptpk(packet_t pk);
 int handle_plugin_request(packet_t pk);
 int handle_ppl(packet_t pk);
 packet_t tcpk(int tpid);
-char *get_devcode(char *client_id);
-char *send_post(char *payload, char *url, char *content_type);
 
-char *urlencode(char *s);
-void curl_dump(CURL *handle, curl_infotype type, char *data, size_t size, void *userp);
-int open_socket(char *host, int port);
 int main(int argc, char **argv)
 {
 	if (argc != 4) {
@@ -143,8 +138,6 @@ int main(int argc, char **argv)
 	//auth_success = authenticate2("crazyface55566@gmail.com","SpaceGhost1221!");
 	//auth_success = authenticate2("averymccullars@hotmail.com","AGMmh199!");
 	//auth_success = authenticate2("enrisk.minecraft@gmail.com","Firebler11!");
-//	char *devcode = get_devcode("feb3836f-0333-4185-8eb9-4cbf0498f947");
-//	printf("%s\n", devcode);
 	auth_success = authenticate2(argv[2], argv[3]);
 	if (auth_success < 0) {
 		fprintf(stderr, "failed to authenticate\n");
@@ -161,7 +154,6 @@ int main(int argc, char **argv)
 		return -1;
 	}
 	*/
-/*
 	struct sockaddr_in servaddr;
 	if( (sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 1) {
 		fprintf(stderr, "socket() error\n");
@@ -185,10 +177,6 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-*/
-	int sockfd = open_socket(argv[1], PORT);
-	if (sockfd < 0)
-		return -1;
 	int sentpk;
 	packet_t pkpk = hspk(itov(754), ctos(argv[1]), 25565, itov(2));
 	sentpk = sendpk(pkpk, sockfd);
@@ -237,33 +225,6 @@ int main(int argc, char **argv)
 			return -1;
 	}
 	return 0;
-}
-int open_socket(char *host, int port)
-{
-	struct sockaddr_in servaddr;
-	if( (sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 1) {
-		fprintf(stderr, "socket() error\n");
-		return -1;
-	}
-	bzero(&servaddr, sizeof(servaddr));
-	servaddr.sin_family = AF_INET;
-	servaddr.sin_port = htons(port);
-	const char *ip = hosttoip(host);
-	if (ip == NULL) {
-		fprintf(stderr, "hosttoip failed\n");
-		return -1;
-	}
-	if (inet_pton(AF_INET, ip, &servaddr.sin_addr) <= 0) {
-		fprintf(stderr, "inet_pton error\n");
-		return -1;
-	}
-	if (connect(sockfd, (struct sockaddr *) &servaddr, sizeof(servaddr)) < 0) {
-		fprintf(stderr, "%s", strerror(errno));
-		fprintf(stderr, "connect error\n");
-		return -1;
-	}
-
-
 }
 packet_t recpack()
 {
@@ -603,7 +564,7 @@ const char *hosttoip(const char *host)
 {
 	struct hostent *hostentp = gethostbyname(host);
 	if (hostentp == NULL ) {
-		fprintf(stderr, "gethostbyname(%s) returned nothing\n", host);
+		fprintf(stderr, "gethosbyname(%s) returned nothing\n", host);
 		return NULL;
 	}
 	char **addr_list = hostentp->h_addr_list;	
@@ -743,8 +704,6 @@ char *mojangapi(char *payload, char *url)
 	curl_global_init(CURL_GLOBAL_ALL);
 	curl = curl_easy_init();
 	if(curl) {
-		curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
-		curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, curl_dump);
 		curl_easy_setopt(curl, CURLOPT_URL, url);
  
 		/* send all data to this function	*/
@@ -799,16 +758,8 @@ char *mojangapi(char *payload, char *url)
 	curl_global_cleanup();
 	return ret;
 }
-void curl_dump(CURL *handle, curl_infotype type, char *data, size_t size, void *userp)
-{
-    if(type == CURLINFO_DATA_OUT)
-    {
-        printf("%*s", (int)size, data);
-    }
-}
 char *send_post(char *payload, char *url, char *content_type)
 {
-	printf("send_post: %s\n", payload);
 	CURL *curl;
 	CURLcode res;
 	char *ret;
@@ -825,9 +776,7 @@ char *send_post(char *payload, char *url, char *content_type)
 		/* send all data to this function	*/
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
-		//curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0");
-//		char *payload_encoded = curl_easy_escape(curl, payload, 0);
-		//curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload);
+//		curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0");
 		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload);
 		curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)strlen(payload));
 		struct curl_slist *headers = curl_slist_append(NULL, content_type); 
@@ -856,53 +805,6 @@ char *send_post(char *payload, char *url, char *content_type)
 	curl_global_cleanup();
 	return ret;
 }
-char *urlencode(char *s)
-{
-	CURL *curl;
-	curl_global_init(CURL_GLOBAL_ALL);
-	curl = curl_easy_init();
-	char *encoded = curl_easy_escape(curl, s, 0);
-	char *dest = (char *)malloc(strlen(encoded) + 1);
-	strcpy(dest, encoded);
-	curl_free(encoded);
-	curl_global_cleanup();
-//	printf("urlencoded: %s\n", dest);
-	return dest;
-}
-char *get_devcode(char *client_id)
-{
-	printf("segfaul");
-	//char scope[] = "scope=3DXboxLive.signin%20offline_access";
-	char sco[] = "scope=";
-//	char scop[] = "3DXboxLive.signin offline_access";
-	char *scop = urlencode("3DXboxLive.signin offline_access");
-	printf("%s\n", scop);
-//	return "test";
-	char *scope = (char *)malloc(strlen(sco) + strlen(scop) + 1);
-	sprintf(scope, "%s%s", sco, scop);
-	char clid[] = "client_id=";
-	client_id = urlencode(client_id);
-	size_t plen = strlen(clid) + strlen(client_id) + strlen(scope) + 2;
-	char *payload = (char *)malloc(plen);
-	printf("plen: %lu\n", plen);
-	printf("debug\n%s%lu%s%lu%s%lu\n", clid, strlen(clid), client_id, strlen(client_id), scope, strlen(scope));
-	snprintf(payload, plen, "%s%s&%s", clid, client_id, scope);
-	printf("payload: %s\n", payload);
-	char url[] = "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode";
-//https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode
-//	char *res = send_post(payload, url, "Content-Type: x-www-form-urlencoded");
-	char message[1024];
-//	sprintf(message, "POST / HTTP/1.1\r\nHost: www.example.com\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: %d\r\n\r\n%s", (int)strlen(payload), payload);
-}
-/*
-	
-curl -s  -d "client_id=feb3836f-0333-4185-8eb9-4cbf0498f947" -d "scope=XboxLive.signin offline_access" https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode
-curl -s -d "grant_type=urn:ietf:params:oauth:grant-type:device_code" -d "client_id=feb3836f-0333-4185-8eb9-4cbf0498f947" -d "device_code=<device_code>" https://login.microsoftonline.com/consumers/oauth2/v2.0/token
-curl -X POST https://user.auth.xboxlive.com/user/authenticate -H "Content-Type: application/json" -d '{ "Properties": { "AuthMethod": "RPS", "SiteName": "user.auth.xboxlive.com", "RpsTicket": "d=<access token>" }, "RelyingParty": "http://auth.xboxlive.com", "TokenType": "JWT" }'
-curl -X POST https://xsts.auth.xboxlive.com/xsts/authorize -H "Content-Type: application/json" -d '{ "Properties": { "SandboxId": "RETAIL", "UserTokens": [ "xbl_token" ] }, "RelyingParty": "rp://api.minecraftservices.com/", "TokenType": "JWT" }'
-curl -X POST https://api.minecraftservices.com/authentication/login_with_xbox -H "Content-Type: application/json" -d '{"identityToken": "XBL3.0 x=<userhash>;<xsts_token>"}'
-
-*/
 int authenticate2(char *uname, char *pword)
 {
 	char *s = mojangapi(mkauthjson(uname, pword), "https://authserver.mojang.com/authenticate");
@@ -2051,3 +1953,4 @@ int vtoi(varint_t value)
 	return ret;
 
 }
+	

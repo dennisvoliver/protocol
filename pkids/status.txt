@@ -1,0 +1,5 @@
+(QueryRequestC2SPacket.class, QueryRequestC2SPacket::new).register
+(QueryPingC2SPacket.class, QueryPingC2SPacket::new)).setup(NetworkSide.CLIENTBOUND, (new NetworkState.PacketHandler()).register
+(QueryResponseS2CPacket.class, QueryResponseS2CPacket::new).register
+(QueryPongS2CPacket.class, QueryPongS2CPacket::new))),
+ 

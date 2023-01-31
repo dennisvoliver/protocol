@@ -1,0 +1,1 @@
+cc rsa.c -lssl -lcrypto -luuid -lcurl -o rsa

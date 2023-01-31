@@ -121,7 +121,7 @@ packet_t decpk(packet_t pk, unsigned char *key, EVP_CIPHER_CTX *ctx)
 {
 	packet_t ret = (packet_t)malloc(sizeof(struct packet));
 	int block_size = EVP_CIPHER_CTX_block_size(ctx);
-	ret->len = pk->len + block_size;
+	ret->len = pk->len + (block_size != 1 ? block_size : 0);
 	ret->data = (char *)malloc(ret->len);
 	int outl;
 	if (!EVP_DecryptUpdate(ctx, ret->data,  &outl, pk->data, pk->len)) {

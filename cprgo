@@ -1,0 +1,2 @@
+#!/bin/sh
+cc cpr.c -o cpr -lz

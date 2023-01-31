@@ -1,0 +1,23 @@
+/*
+#https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?client_id=6731de76-14a6-49ae-97bc-6eba6914391e&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%2F&scope=Xboxlive.signin
+
+curl -s  -d "client_id=feb3836f-0333-4185-8eb9-4cbf0498f947" -d "scope=XboxLive.signin offline_access" https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode
+curl -s -d "grant_type=urn:ietf:params:oauth:grant-type:device_code" -d "client_id=feb3836f-0333-4185-8eb9-4cbf0498f947" -d "device_code=<device_code>" https://login.microsoftonline.com/consumers/oauth2/v2.0/token
+
+curl -X POST https://user.auth.xboxlive.com/user/authenticate -H "Content-Type: application/json" -d '{ "Properties": { "AuthMethod": "RPS", "SiteName": "user.auth.xboxlive.com", "RpsTicket": "d=<access token>" }, "RelyingParty": "http://auth.xboxlive.com", "TokenType": "JWT" }'
+
+
+curl -X POST https://xsts.auth.xboxlive.com/xsts/authorize -H "Content-Type: application/json" -d '{ "Properties": { "SandboxId": "RETAIL", "UserTokens": [ "xbl_token" ] }, "RelyingParty": "rp://api.minecraftservices.com/", "TokenType": "JWT" }'
+
+curl -X POST https://api.minecraftservices.com/authentication/login_with_xbox -H "Content-Type: application/json" -d '{"identityToken": "XBL3.0 x=<userhash>;<xsts_token>"}'
+
+response:
+{
+  "username" : "95093e9a-9fd0-4186-a6eb-c1ced26cf4d0",
+  "roles" : [ ],
+  "metadata" : { },
+  "access_token" : "eyJhbGciOiJIUzI1NiJ9.eyJ4dWlkIjoiMjUzNTQ1MTM5ODA1Mzk1NCIsImFnZyI6IkFkdWx0Iiwic3ViIjoiOTUwOTNlOWEtOWZkMC00MTg2LWE2ZWItYzFjZWQyNmNmNGQwIiwibmJmIjoxNjc0NTQ2ODg1LCJhdXRoIjoiWEJPWCIsInJvbGVzIjpbXSwiaXNzIjoiYXV0aGVudGljYXRpb24iLCJleHAiOjE2NzQ2MzMyODUsImlhdCI6MTY3NDU0Njg4NSwicGxhdGZvcm0iOiJVTktOT1dOIiwieXVpZCI6IjU5ZjEwYWRiMDE0MWViNDczOWMzMTc0YTAwNmUwMjgwIn0.uM3AK_Q6ipnTwzSJHmGOOlOGDaAl5wS2D10RHEN-MFY",
+  "expires_in" : 86400,
+  "token_type" : "Bearer"
+}
+*/

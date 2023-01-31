@@ -1,0 +1,24 @@
+->Monday, 23 January, 2023 11:20:20 AM PST
+Microsoft client IDs:
+https://gitlab.bixilon.de/bixilon/minosoft/-/blob/master/src/main/java/de/bixilon/minosoft/util/account/microsoft/MicrosoftOAuthUtils.kt
+feb3836f-0333-4185-8eb9-4cbf0498f947
+https://github.com/PolyMC/PolyMC/blob/fe2624bf1a499bf725b48d0f2a780647356e42af/CMakeLists.txt#L124
+6b329578-bfec-42a3-b503-303ab3f2ac96
+
+
+
+-> Tuesday, 24 January, 2023 03:36:56 AM PST
+microsoft authentication scheme
+-> Tuesday, 24 January, 2023 12:25:06 PM PST
+use the device authorization grant, it's simpler
+two ways to get device code and user code
+
+$ curl -s -d "client_id=00000000441cc96b" -d "scope=service::user.auth.xboxlive.com::MBI_SSL" -d "response_type=device_code" https://login.live.com/oauth20_connect.srf
+
+$ curl -s -w %{response_body} -d "client_id=feb3836f-0333-4185-8eb9-4cbf0498f947" -d "scope=XboxLive.signin offline_access" https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode
+
+
+the second one is from bixilon
+https://gitlab.bixilon.de/bixilon/minosoft/-/blob/master/src/main/java/de/bixilon/minosoft/util/account/microsoft/MicrosoftOAuthUtils.kt
+the first from mat
+https://github.com/mat-1/azalea/blob/main/azalea-auth/src/auth.rs#L58

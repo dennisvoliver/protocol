@@ -1,0 +1,14 @@
+#!/bin/bash
+for i in `cat ../nfa.txt`
+do 
+	echo testing $i >>done_nfa.txt
+	./tst $i
+	blah=$?
+	if [[ $blah != 254  && $blah != 253 ]]
+	then
+		echo return value $blah 
+		echo authenticated $i
+		exit -1
+	fi
+	sleep 60
+done

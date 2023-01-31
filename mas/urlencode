@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Prompt the user for the input URL
+#read -p "Enter the URL: " input_url
+input_url=$1
+
+# Use the printf command to URL-encode the input URL
+#encoded_url=$(printf '%b' "$input_url")
+encoded_url=$(perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$input_url")
+
+# Print the encoded URL
+#echo "Encoded URL: $encoded_url"
+echo $encoded_url

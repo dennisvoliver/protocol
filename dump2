@@ -1,26 +1,3 @@
-player name: Its_Gone
-getpk called: pklen = 171, k = 2, avail = 173
-getpk done: len = 173, buf->avail = 0
-readpk: pklen=171,k=2,pk->len=173
-encryption request
-getpk called: pklen = 3, k = 1, avail = 4
-getpk done: len = 4, buf->avail = 0
-readpk: pklen=3,k=1,pk->len=4
-set compression
-getpk called: pklen = 48, k = 1, avail = 49
-getpk done: len = 49, buf->avail = 0
-readpk: pklen=47,k=1,pk->len=48
-got plugin request
-handle_plugin_request: plugin id  = 0
-handle_plugin_request: channel = fabric-networking-api-v1:early_registration
-compk: compression threshold = 256, pklen = 12
-compk: creating uncompressed data in compression-enabled packet format
-ret->len = 14
-compk: varint packet length 13
-getpk called: pklen = 43, k = 1, avail = 44
-getpk done: len = 44, buf->avail = 0
-readpk: pklen=42,k=1,pk->len=43
-disconnect login
-disconnect reason:
-{"translate":"disconnect.genericReason"}
-filbuf: socket read failed
+hello test
+authentication failed
+failed to authenticate

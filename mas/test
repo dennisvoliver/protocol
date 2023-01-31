@@ -1,0 +1,19 @@
+HTTP/1.1 200 OK
+Cache-Control: no-store, no-cache
+Pragma: no-cache
+Content-Type: application/json; charset=utf-8
+Expires: -1
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+X-Content-Type-Options: nosniff
+P3P: CP="DSP CUR OTPi IND OTRi ONL FIN"
+x-ms-request-id: 319f7bca-196c-4e10-90e3-3d22f28ce502
+x-ms-ests-server: 2.1.14357.8 - SEASLR2 ProdSlices
+X-XSS-Protection: 0
+Set-Cookie: fpc=Ak4ydcg8sXJKtqQA14NKXo7P-FQ5AQAAAMs7atsOAAAA; expires=Wed, 01-Mar-2023 22:29:32 GMT; path=/; secure; HttpOnly; SameSite=None
+Set-Cookie: esctx=PAQABAAEAAAD--DLA3VO7QrddgJg7Wevr7Rt2_bmet341Y3dUa3yxcLQv1_hf4BlZtRwOxtHAtwPs3aK43ZCxoEPOA_GUWupbcKNRhEb-9XXYBiq606_3f3kDLgWRxDseQHxEzfPP21jGst8FhWZ3s9vngtWOLxAMeDL4EdG-LzfI7Wj-HaATK6xzqNwWbZyxiHzUr0vwXhAgAA; domain=.login.microsoftonline.com; path=/; secure; HttpOnly; SameSite=None
+Set-Cookie: x-ms-gateway-slice=estsfd; path=/; secure; httponly
+Set-Cookie: stsservicecookie=estsfd; path=/; secure; httponly
+Date: Mon, 30 Jan 2023 22:29:31 GMT
+Content-Length: 678
+
+{"user_code":"P294ZBWQ","device_code":"HAQABAAEAAAD--DLA3VO7QrddgJg7WevrlUaMZ2Nsm-HZG6yZwS16v3CBrckrK6lImWGZaVEExDhIYR9ubzz2ehRDlD1LmV4osmtJebMFznoSs8g_Eqq82t0NBN9PKIErteART_1CEYlKErPfIM5bv_bxO8nRd_SM-xMagJdNhO5EkEaX7fhGH-nDEcFIlbJKsPyMBlf6iD58GODqTofVl7CtBwymJnqNs-ghkBEXi3hG4_nZr48hbQ6yFw2KC79Nqfmcdy188wKcKVpFxIMe7s1YN7I9gEiMzb_IsA44uHSNRWUHntsiuwRRhMH1f54Mce5vxb50OxiobQ33astrO0_AhwnfzOa0eNR6Y8mwSZ0aUkrlGiFArxkQp61Bl65-hIaDDMANnpCiJQDsE3yvsl1DU-tTVCt9IAA","verification_uri":"https://www.microsoft.com/link","expires_in":900,"interval":5,"message":"To sign in, use a web browser to open the page https://www.microsoft.com/link and enter the code P294ZBWQ to authenticate."}
