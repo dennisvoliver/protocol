@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-c -I../../https.h -Wno-deprecated-declarations
+CFLAGS=-c -I../../https -Wall
 LDFLAGS =   -lcurl -lssl -lcrypto   -lcjson
 SOURCES=main.c mas.c
 OBJECTS=$(SOURCES:.c=.o) ../../https/https.o
@@ -15,3 +15,5 @@ $(EXECUTABLE): $(OBJECTS)
 
 clean:
 	rm -rf $(OBJECTS) $(EXECUTABLE)
+depends:
+	make -C ../../https clean all
